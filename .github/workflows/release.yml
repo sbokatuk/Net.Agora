@@ -1,0 +1,156 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: resolve release version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: resolve
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! printf '%s' "${version}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::tag '${GITHUB_REF_NAME}' does not look like a version (expected e.g. v4.6.3)"
+            exit 1
+          fi
+
+          case "${version}" in
+            *-*) prerelease=true ;;
+            *)   prerelease=false ;;
+          esac
+
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
+          echo "Releasing ${version} (prerelease=${prerelease})" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: build
+    needs: version
+    # The native SDK pins are not derived from the tag: they live in Directory.Build.props, and a
+    # release binds whatever version the tagged commit pinned.
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  publish:
+    name: publish to nuget.org and create release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    # Must match the Environment on the nuget.org trusted publishing policy for this workflow.
+    # The policy carries the environment name in the OIDC claim it validates, so a mismatch fails
+    # the token exchange with HTTP 401 and "Environment mismatch for policy ...".
+    environment: nuget.org
+    permissions:
+      # contents: write creates the GitHub release; id-token: write lets the job request the OIDC
+      # token that nuget.org exchanges for a short-lived API key.
+      contents: write
+      id-token: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Needed to find the previous tag when generating the changelog.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts
+
+      # nuget.org is published to first: a GitHub release that links to packages which failed to
+      # upload would be worse than a release created a moment late.
+      - name: Authenticate to nuget.org
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to nuget.org
+        run: |
+          dotnet nuget push "artifacts/*.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+            --skip-duplicate
+
+      - name: Compose release notes
+        run: |
+          . ./build/pins.sh
+          previous=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+
+          notes="docs/release-notes/${VERSION}.md"
+          [ -f "${notes}" ] || notes="docs/release-notes/${VERSION%%-*}.md"
+
+          {
+            if [ -f "${notes}" ]; then
+              echo "==> using curated notes from ${notes}" >&2
+              cat "${notes}"
+            else
+              echo "## What's changed"
+              echo
+              if [ -n "${previous}" ]; then
+                git log --no-merges --pretty='- %s (%h)' "${previous}..${GITHUB_REF_NAME}"
+              else
+                echo "Initial release."
+              fi
+            fi
+            echo
+            if [ -n "${previous}" ]; then
+              echo "**Full changelog**: ${{ github.server_url }}/${{ github.repository }}/compare/${previous}...${GITHUB_REF_NAME}"
+              echo
+            fi
+
+            echo "## Packages"
+            echo
+            echo "A pure façade over Net.Agora.Video.Android \`${NET_AGORA_VIDEO_ANDROID_VERSION}\`"
+            echo "([sbokatuk/Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android)) and"
+            echo "Net.Agora.Video.iOS \`${NET_AGORA_VIDEO_IOS_VERSION}\`"
+            echo "([sbokatuk/Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS)) — this"
+            echo "repository binds nothing itself. Targeting .NET 8, .NET 9 and .NET 10. No Mac"
+            echo "Catalyst — see docs/BUILD.md."
+            echo
+            echo "| Package | Platforms | NuGet |"
+            echo "| --- | --- | --- |"
+            echo "| \`Net.Agora.Video.Maui\` | Android, iOS | [${VERSION}](https://www.nuget.org/packages/Net.Agora.Video.Maui/${VERSION}) |"
+            echo "| \`Net.Agora.Video\` | Android, iOS | [${VERSION}](https://www.nuget.org/packages/Net.Agora.Video/${VERSION}) |"
+            echo
+            echo "\`\`\`"
+            echo "dotnet add package Net.Agora.Video.Maui --version ${VERSION}   # MAUI apps"
+            echo "dotnet add package Net.Agora.Video --version ${VERSION}        # everything else"
+            echo "\`\`\`"
+          } > release-notes.md
+
+          cat release-notes.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The packages themselves are not attached: nuget.org is the distribution channel, and
+          # the iOS package carries several xcframeworks per target framework. The notes link to
+          # every published package instead.
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${VERSION}" \
+            --notes-file release-notes.md \
+            ${{ needs.version.outputs.prerelease == 'true' && '--prerelease' || '' }}

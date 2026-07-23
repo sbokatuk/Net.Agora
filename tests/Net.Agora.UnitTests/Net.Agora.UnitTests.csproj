@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Covers the platform-independent logic in Net.Agora.Video: AgoraVideoOptions, the event-arg
+    types, and IAgoraVideoClient's contract. Plain net9.0, no workloads, no device.
+
+    Net.Agora.Video itself cannot be referenced with an ordinary ProjectReference here: it only
+    multi-targets net*-android/net*-ios (see its own csproj) because AgoraVideoClient's JoinCore /
+    LeaveCore / DisposeCore exist only in Platforms/Android and Platforms/Apple — there is no
+    neutral head to build a net9.0 test project against. The files linked in below have no such
+    dependency, so they compile standalone. The concrete client's join/timeout/cancellation/dispose
+    state machine needs a real engine to construct and is covered on-device instead — see
+    Net.Agora.DeviceTests.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../src/Net.Agora.Video/AgoraVideoOptions.cs" Link="Facade/AgoraVideoOptions.cs" />
+    <Compile Include="../../src/Net.Agora.Video/AgoraVideoEvents.cs" Link="Facade/AgoraVideoEvents.cs" />
+    <Compile Include="../../src/Net.Agora.Video/IAgoraVideoClient.cs" Link="Facade/IAgoraVideoClient.cs" />
+  </ItemGroup>
+
+</Project>

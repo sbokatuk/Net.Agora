@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<!--
+		EnableVideo/MuteLocalAudio in SmokeTests.cs touch AVFoundation's camera and microphone
+		before a channel is ever joined. Without these two keys iOS kills the process outright the
+		first time the SDK asks for either — a missing-key crash, not a denied-permission one — so
+		this is not optional politeness the way it might read on a UI-facing app.
+	-->
+	<key>NSCameraUsageDescription</key>
+	<string>Net.Agora device tests exercise EnableVideo, which opens the camera.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Net.Agora device tests exercise MuteLocalAudio, which opens the microphone.</string>
+</dict>
+</plist>

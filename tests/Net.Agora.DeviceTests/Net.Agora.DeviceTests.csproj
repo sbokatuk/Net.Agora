@@ -1,0 +1,105 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Which of Net.Agora.Video's target frameworks to exercise. Overriding TargetFramework directly
+      on the command line breaks restore, so it goes through a property of our own.
+
+      One project with two heads, not two projects: the point of this suite is that the same checks
+      compile and pass on both platforms, and two projects sharing a linked file would make it
+      possible for one of them to drift.
+    -->
+    <AgoraDeviceTargetFramework Condition=" '$(AgoraDeviceTargetFramework)' == '' ">net9.0-ios18.0</AgoraDeviceTargetFramework>
+    <TargetFramework>$(AgoraDeviceTargetFramework)</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <CheckEolWorkloads>false</CheckEolWorkloads>
+
+    <ApplicationId>com.sbokatuk.agora.devicetests</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
+    <!--
+      The checks report through stdout, which the runner streams back with `simctl launch` in
+      console-pty mode. Quietening the Mono logger keeps that stream to the test output rather than
+      runtime chatter.
+    -->
+    <MtouchExtraArgs>--setenv=MONO_LOG_LEVEL=error</MtouchExtraArgs>
+
+    <!--
+      The interpreter, explicitly. The .NET 9 iOS SDK JITs a Debug simulator build; the .NET 8 one
+      puts the runtime in aot-only mode for the same command line and dies on the first assembly it
+      has no AOT image for. Set for both bands rather than only net8 so the two runs are comparable
+      — a check that passes under the interpreter on one platform version and under the JIT on
+      another is not testing quite the same thing.
+    -->
+    <UseInterpreter>true</UseInterpreter>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <!-- Matches the sample app's floor — see samples/Net.Agora.Sample/Net.Agora.Sample.csproj. -->
+    <SupportedOSPlatformVersion>23.0</SupportedOSPlatformVersion>
+
+    <!--
+      The property, not an @(AndroidManifest) item. The .NET 9 Android SDK is happy with the item
+      form; the .NET 8 one reads $(AndroidManifest), defaults it to the project root, and fails with
+      XA1018 ("Specified AndroidManifest file does not exist").
+    -->
+    <AndroidManifest>Platforms/Android/AndroidManifest.xml</AndroidManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Platforms/**/*.cs" />
+    <None Include="Platforms/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <Compile Include="Platforms/Android/**/*.cs" />
+    <None Remove="Platforms/Android/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <Compile Include="Platforms/iOS/**/*.cs" />
+    <None Remove="Platforms/iOS/**/*.cs" />
+    <!--
+      Both None (the item type) and LogicalName="Info.plist" (the metadata) are required. This is a
+      plain iOS SDK project, not MAUI — samples/Net.Agora.Sample gets Platforms/iOS/Info.plist
+      recognised for free because Microsoft.Maui.Sdk has its own convention for it; the raw iOS SDK
+      instead auto-generates a manifest from ApplicationId/ApplicationVersion and does not look
+      under Platforms/ for one at all — a plain, unreferenced file there built clean but none of its
+      keys (camera/microphone usage descriptions, orientations) made it into the app bundle's actual
+      Info.plist. _DetectAppManifest (Xamarin.Shared.targets) locates a manifest by LogicalName
+      rather than by path, and only searches @(None) first — a BundleResource item is found too, but
+      only on a second pass, and only after triggering "Info.plist files should have a Build Action
+      of 'None'" on every build.
+    -->
+    <None Include="Platforms/iOS/Info.plist" LogicalName="Info.plist" />
+  </ItemGroup>
+
+  <!--
+    The device tests deliberately consume the packed NuGet from ./artifacts rather than a
+    ProjectReference, so they exercise the artifact that actually gets published — including its
+    dependency on Net.Agora.Video.Android / .iOS, which a ProjectReference would prove nothing
+    about. See NuGet.config for the local feed.
+
+    Net.Agora.Video.Maui is deliberately absent. This app is not a MAUI app: keeping the checks free
+    of the MAUI workload is what lets them prove that the *façade* works rather than that MAUI's
+    plumbing does, and it keeps the emulator/simulator run from spending minutes on a MAUI build.
+    The sample app is what exercises Net.Agora.Video.Maui.
+  -->
+  <PropertyGroup>
+    <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' ">$(VersionPrefix)</AgoraPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Net.Agora.Video" Version="$(AgoraPackageVersion)" />
+  </ItemGroup>
+
+</Project>

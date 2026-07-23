@@ -1,0 +1,88 @@
+<Project>
+
+  <!--
+    ============================================================================
+    Platform package pins — Net.Agora.Video.Android / .iOS, published from their own repos
+    ============================================================================
+    This repository binds nothing itself: the raw Android/iOS bindings live in
+    sbokatuk/Net.Agora.Android and sbokatuk/Net.Agora.iOS, each an independently versioned,
+    independently released package, and Net.Agora.Video depends on them via ordinary
+    PackageReference at an exact pinned version — never a floating range, since a float would turn
+    an unrelated upstream change into a build break here. Each version is
+    <native SDK version>.<binding revision> in its own repository — see sbokatuk/Net.Agora.Android
+    and sbokatuk/Net.Agora.iOS's own Directory.Build.props. The two numbers don't match: Agora
+    ships Android and iOS on independent schedules, and the iOS CocoaPods pod for a release has
+    been observed lagging Maven Central by a point version.
+  -->
+  <PropertyGroup>
+    <NetAgoraVideoAndroidVersion>4.6.3.1</NetAgoraVideoAndroidVersion>
+    <NetAgoraVideoIosVersion>4.6.2.1</NetAgoraVideoIosVersion>
+
+    <!--
+      This repository's own version tracks the iOS platform package's native version component —
+      the same convention sbokatuk/DatadogNet's facade uses, and for the same reason: it is
+      deliberately the line a reader is more likely to check first, since it is the one that lags.
+    -->
+    <AgoraVideoIosVersion>4.6.2</AgoraVideoIosVersion>
+    <AgoraBindingRevision>1</AgoraBindingRevision>
+    <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
+  </PropertyGroup>
+
+  <!--
+    ============================================================================
+    Target frameworks
+    ============================================================================
+    Used by this repository's own multi-targeted packages (Net.Agora.Video, Net.Agora.Video.Maui —
+    matching whichever target frameworks the platform packages ship). No single SDK can build net8,
+    net9 and net10 for a given platform: each SDK's workload carries only the current band and the
+    previous one.
+
+                  SDK 9 band                          SDK 10 band
+      Android     net8.0-android34.0, net9.0-*35.0    net10.0-android36.0
+      iOS         net8.0-ios18.0,     net9.0-ios18.0  net10.0-ios26.0
+
+    So each is packed twice and the results are merged — see build/BuildNugets.sh and
+    build/merge-packages.py. AgoraSdkBand selects which pass a given build is.
+  -->
+  <PropertyGroup>
+    <AgoraSdkBand Condition=" '$(AgoraSdkBand)' == '' ">net9</AgoraSdkBand>
+
+    <AgoraAndroidTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net9' ">net8.0-android34.0;net9.0-android35.0</AgoraAndroidTargetFrameworks>
+    <AgoraAndroidTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net10' ">net10.0-android36.0</AgoraAndroidTargetFrameworks>
+
+    <AgoraIosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net9' ">net8.0-ios18.0;net9.0-ios18.0</AgoraIosTargetFrameworks>
+    <AgoraIosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net10' ">net10.0-ios26.0</AgoraIosTargetFrameworks>
+  </PropertyGroup>
+
+  <!--
+    ============================================================================
+    Shared package metadata
+    ============================================================================
+  -->
+  <PropertyGroup>
+    <Authors>s.bokatuk</Authors>
+    <Company>s.bokatuk</Company>
+    <Copyright>Copyright © s.bokatuk</Copyright>
+    <PackageProjectUrl>https://github.com/sbokatuk/Net.Agora</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/sbokatuk/Net.Agora</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition=" '$(GITHUB_ACTIONS)' == 'true' ">true</ContinuousIntegrationBuild>
+
+    <!--
+      net8.0-* and net9.0-* are past end of support, which the SDK reports as an error. They ship
+      deliberately: .NET 8 is still where a large share of MAUI apps are.
+    -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <CheckEolWorkloads>false</CheckEolWorkloads>
+  </PropertyGroup>
+
+</Project>

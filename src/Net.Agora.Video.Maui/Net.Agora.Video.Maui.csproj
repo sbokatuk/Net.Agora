@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MAUI conveniences over Net.Agora.Video: the video view and its handlers, plus the platform glue
+    a MAUI app would otherwise write by hand (the Android Activity lookup, and pulling the native
+    view out of a handler).
+
+    Separate from Net.Agora.Video on purpose. Everything here needs Microsoft.Maui.Controls, and
+    forcing that on a plain .NET for Android or .NET for iOS consumer to get an Agora client would
+    be a poor trade.
+
+    No Mac Catalyst leg — see Net.Agora.Video.csproj.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+
+    <AssemblyName>Net.Agora.Video.Maui</AssemblyName>
+    <RootNamespace>Net.Agora.Video.Maui</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!--
+      UseMauiCore rather than UseMaui: this is a library of handlers and extensions, not an app,
+      and the full UseMaui brings in app-only targets (resource generation, splash screens) that
+      have nothing to do here.
+    -->
+    <UseMauiCore>true</UseMauiCore>
+    <UseMauiEssentials>true</UseMauiEssentials>
+    <SingleProject>true</SingleProject>
+
+    <!--
+      MA002: since .NET 8, UseMauiCore/UseMauiEssentials no longer implicitly add the matching
+      PackageReference — they still set up everything actually needed to build and pack this
+      project, and the suggested explicit PackageReference is version-pinned to a single band,
+      which fights the net8/net9/net10 multi-targeting here. Silencing the advisory rather than
+      the underlying behavior.
+    -->
+    <SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AgoraVideoDependencyVersion Condition=" '$(AgoraVideoDependencyVersion)' == '' ">$(Version)</AgoraVideoDependencyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Net.Agora.Video" Version="[$(AgoraVideoDependencyVersion)]" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Net.Agora.Video.Maui</PackageId>
+    <Title>.NET MAUI video view and helpers for Net.Agora.Video.</Title>
+    <Description>Adds an AgoraVideoView control and the platform glue a .NET MAUI app needs to use Net.Agora.Video: rendering into a native surface on Android and iOS, and supplying the Android Activity RtcEngineConfig requires. Add Net.Agora.Video on its own if you are not using MAUI.</Description>
+    <PackageTags>Agora;RTC;video;streaming;SDK;MAUI;Android;iOS</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+</Project>
