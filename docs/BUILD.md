@@ -44,7 +44,8 @@ tests/
 samples/
   Net.Agora.Sample/             the MAUI sample app (Video)
 assets/                         the package icon
-Net.Agora.sln                   every project above
+Net.Agora.sln                   every project above except the sample, which consumes packed
+                                 packages from ./artifacts and would break a plain restore
 ```
 
 ## Why two passes
