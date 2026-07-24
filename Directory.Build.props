@@ -23,6 +23,13 @@
     <NetAgoraSignalingIosVersion>2.2.6.1</NetAgoraSignalingIosVersion>
     <NetAgoraChatAndroidVersion>1.4.0.1</NetAgoraChatAndroidVersion>
     <NetAgoraChatIosVersion>1.4.0.1</NetAgoraChatIosVersion>
+    <!--
+      The one product whose two platform packages sit on different version lines. netless keeps the
+      Android and iOS whiteboard SDKs in separate repositories with separate release cadences, so
+      unlike the RTC pair there is no reason to expect them to meet.
+    -->
+    <NetAgoraWhiteboardAndroidVersion>2.16.123.1</NetAgoraWhiteboardAndroidVersion>
+    <NetAgoraWhiteboardIosVersion>2.16.137.1</NetAgoraWhiteboardIosVersion>
 
     <!--
       Each product's own version tracks its iOS platform package's native version component — the
@@ -46,6 +53,12 @@
     -->
     <AgoraChatIosVersion>1.4.0</AgoraChatIosVersion>
     <AgoraChatBindingRevision>1</AgoraChatBindingRevision>
+    <!--
+      Whiteboard tracks its iOS line, like every other product here — which for this one means the
+      newer of the two.
+    -->
+    <AgoraWhiteboardIosVersion>2.16.137</AgoraWhiteboardIosVersion>
+    <AgoraWhiteboardBindingRevision>1</AgoraWhiteboardBindingRevision>
     <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
   </PropertyGroup>
 
