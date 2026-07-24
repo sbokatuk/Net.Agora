@@ -12,6 +12,7 @@
       file would make it possible for one of them to drift.
     -->
     <AgoraDeviceProduct Condition=" '$(AgoraDeviceProduct)' == '' ">Video</AgoraDeviceProduct>
+    <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Signaling' ">$(DefineConstants);AGORA_SIGNALING</DefineConstants>
     <AgoraDeviceTargetFramework Condition=" '$(AgoraDeviceTargetFramework)' == '' ">net9.0-ios18.0</AgoraDeviceTargetFramework>
     <TargetFramework>$(AgoraDeviceTargetFramework)</TargetFramework>
     <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Voice' ">$(DefineConstants);AGORA_VOICE</DefineConstants>
@@ -100,6 +101,7 @@
   -->
   <PropertyGroup>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Voice' ">$(AgoraVoiceIosVersion).$(AgoraBindingRevision)</AgoraPackageVersion>
+    <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Signaling' ">$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)</AgoraPackageVersion>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' ">$(VersionPrefix)</AgoraPackageVersion>
   </PropertyGroup>
 

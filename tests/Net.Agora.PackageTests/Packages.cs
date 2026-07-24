@@ -23,20 +23,26 @@ public static class Packages
     public const string VoiceIOS = "Net.Agora.Voice.iOS";
     public const string Voice = "Net.Agora.Voice";
     public const string VoiceMaui = "Net.Agora.Voice.Maui";
+    public const string SignalingAndroid = "Net.Agora.Signaling.Android";
+    public const string SignalingIOS = "Net.Agora.Signaling.iOS";
+    public const string Signaling = "Net.Agora.Signaling";
 
     /// <summary>
     /// One row per product this repository packs: the façade package, its MAUI companion, and the
     /// two platform packages the façade must pin. Pinned rather than discovered so a product
     /// silently dropped from the pack is a failure, not something the tests adapt to.
     /// </summary>
-    public static readonly (string Facade, string Maui, string Android, string Ios)[] Products =
+    public static readonly (string Facade, string? Maui, string Android, string Ios)[] Products =
     [
         (Video, VideoMaui, VideoAndroid, VideoIOS),
         (Voice, VoiceMaui, VoiceAndroid, VoiceIOS),
+        // No MAUI companion: RTM needs no Android Context and renders nothing, so there is no
+        // platform glue to hide — see src/Net.Agora.Signaling/Net.Agora.Signaling.csproj.
+        (Signaling, null, SignalingAndroid, SignalingIOS),
     ];
 
     public static IEnumerable<object[]> ProductRows =>
-        Products.Select(p => new object[] { p.Facade, p.Maui, p.Android, p.Ios });
+        Products.Select(p => new object[] { p.Facade, p.Maui!, p.Android, p.Ios });
 
     /// <summary>
     /// Target frameworks Net.Agora.Video / Net.Agora.Video.Maui must carry, one per SDK band pass.

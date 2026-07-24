@@ -32,6 +32,9 @@
     <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceOptions.cs" Link="Facade/AgoraVoiceOptions.cs" />
     <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceEvents.cs" Link="Facade/AgoraVoiceEvents.cs" />
     <Compile Include="../../src/Net.Agora.Voice/IAgoraVoiceClient.cs" Link="Facade/IAgoraVoiceClient.cs" />
+    <Compile Include="../../src/Net.Agora.Signaling/AgoraSignalingOptions.cs" Link="Facade/AgoraSignalingOptions.cs" />
+    <Compile Include="../../src/Net.Agora.Signaling/AgoraSignalingEvents.cs" Link="Facade/AgoraSignalingEvents.cs" />
+    <Compile Include="../../src/Net.Agora.Signaling/IAgoraSignalingClient.cs" Link="Facade/IAgoraSignalingClient.cs" />
   </ItemGroup>
 
 </Project>

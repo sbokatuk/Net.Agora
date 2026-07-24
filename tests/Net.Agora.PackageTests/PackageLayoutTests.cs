@@ -70,14 +70,15 @@ public class PackageLayoutTests
     [SkippableTheory]
     [MemberData(nameof(Packages.ProductRows), MemberType = typeof(Packages))]
     public void Maui_package_depends_on_the_metapackage(
-        string facade, string maui, string android, string ios)
+        string facade, string? maui, string android, string ios)
     {
         _ = (android, ios);
 
-        Skip.IfNot(Packages.Exists(maui), $"{maui} was not packed");
+        Skip.If(maui is null, $"{facade} has no MAUI companion by design");
+        Skip.IfNot(Packages.Exists(maui!), $"{maui} was not packed");
 
-        using var package = Packages.OpenPackage(maui);
-        var nuspec = Packages.ReadNuspec(package, maui);
+        using var package = Packages.OpenPackage(maui!);
+        var nuspec = Packages.ReadNuspec(package, maui!);
 
         var ids = nuspec.Descendants()
             .Where(e => e.Name.LocalName == "dependency")

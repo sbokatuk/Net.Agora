@@ -78,12 +78,17 @@ jobs:
             --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
             --skip-duplicate
 
+      - uses: actions/checkout@v4
+
       - name: Summarise
         run: |
+          . ./build/pins.sh
+          s="${{ needs.version.outputs.suffix }}"
           {
-            echo "### Published \`${{ needs.version.outputs.version }}\` to nuget.org"
+            echo "### Published beta packages to nuget.org"
             echo
             for id in Net.Agora.Video.Maui Net.Agora.Video Net.Agora.Voice.Maui Net.Agora.Voice; do
-              echo "- [${id}](https://www.nuget.org/packages/${id}/${{ needs.version.outputs.version }})"
+              echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_VIDEO_PACKAGE_VERSION}-${s})"
             done
+            echo "- [Net.Agora.Signaling](https://www.nuget.org/packages/Net.Agora.Signaling/${AGORA_SIGNALING_PACKAGE_VERSION}-${s})"
           } >> "$GITHUB_STEP_SUMMARY"
