@@ -111,7 +111,7 @@ jobs:
 
       - name: Pack
         run: |
-          for product in video voice signaling chat whiteboard; do
+          for product in video voice signaling chat whiteboard fastboard; do
             if [ -n "${{ inputs.suffix }}" ]; then
               ./build/BuildNugets.sh "$product" --suffix "${{ inputs.suffix }}"
             else
@@ -172,6 +172,12 @@ jobs:
               -c Debug -f "$@" \
               -p:AgoraWhiteboardPackageVersion="${AGORA_WHITEBOARD_PACKAGE_VERSION}${s}"
             echo "::endgroup::"
+
+            echo "::group::fastboard sample $1"
+            dotnet build samples/Net.Agora.Sample.Fastboard \
+              -c Debug -f "$@" \
+              -p:AgoraFastboardPackageVersion="${AGORA_FASTBOARD_PACKAGE_VERSION}${s}"
+            echo "::endgroup::"
           done
 
   validate:
@@ -217,7 +223,7 @@ jobs:
         # One leg per product: the Video and Voice façades' platform packages carry the same
         # native artifacts, so a single device test app holds exactly one of them — and Signaling
         # is a different product entirely.
-        product: [Video, Voice, Signaling, Chat, Whiteboard]
+        product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
         target-framework: ${{ fromJSON(inputs.e2e-ios-target-frameworks) }}
     steps:
       - uses: actions/checkout@v4
@@ -257,6 +263,7 @@ jobs:
             Signaling) base="${AGORA_SIGNALING_PACKAGE_VERSION}" ;;
             Chat)      base="${AGORA_CHAT_PACKAGE_VERSION}" ;;
             Whiteboard) base="${AGORA_WHITEBOARD_PACKAGE_VERSION}" ;;
+            Fastboard) base="${AGORA_FASTBOARD_PACKAGE_VERSION}" ;;
           esac
           version="${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
           ./.github/scripts/run-simulator-tests.sh "${version}" "${{ matrix.target-framework }}" "${{ matrix.product }}"
@@ -278,7 +285,7 @@ jobs:
       fail-fast: false
       matrix:
         # One leg per product — see the iOS job's matrix comment.
-        product: [Video, Voice, Signaling, Chat, Whiteboard]
+        product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
         target-framework: ${{ fromJSON(inputs.e2e-android-target-frameworks) }}
     # Linux, unlike the pack job: the emulator needs KVM, which the macOS runners do not have, and
     # the Android head of the device app needs no Apple toolchain to build.
@@ -353,6 +360,7 @@ jobs:
             Signaling) base="${AGORA_SIGNALING_PACKAGE_VERSION}" ;;
             Chat)      base="${AGORA_CHAT_PACKAGE_VERSION}" ;;
             Whiteboard) base="${AGORA_WHITEBOARD_PACKAGE_VERSION}" ;;
+            Fastboard) base="${AGORA_FASTBOARD_PACKAGE_VERSION}" ;;
           esac
           echo "AGORA_E2E_VERSION=${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}" >> "$GITHUB_ENV"
 

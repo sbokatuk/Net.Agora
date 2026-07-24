@@ -115,6 +115,8 @@ jobs:
             echo "| \`Net.Agora.Chat\` | Android, iOS | [${AGORA_CHAT_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Chat/${AGORA_CHAT_PACKAGE_VERSION}) |"
             echo "| \`Net.Agora.Whiteboard.Maui\` | Android, iOS | [${AGORA_WHITEBOARD_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Whiteboard.Maui/${AGORA_WHITEBOARD_PACKAGE_VERSION}) |"
             echo "| \`Net.Agora.Whiteboard\` | Android, iOS | [${AGORA_WHITEBOARD_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Whiteboard/${AGORA_WHITEBOARD_PACKAGE_VERSION}) |"
+            echo "| \`Net.Agora.Fastboard.Maui\` | Android, iOS | [${AGORA_FASTBOARD_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Fastboard.Maui/${AGORA_FASTBOARD_PACKAGE_VERSION}) |"
+            echo "| \`Net.Agora.Fastboard\` | Android, iOS | [${AGORA_FASTBOARD_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Fastboard/${AGORA_FASTBOARD_PACKAGE_VERSION}) |"
             echo
             echo "\`\`\`"
             echo "dotnet add package Net.Agora.Video.Maui --version ${AGORA_VIDEO_PACKAGE_VERSION}       # MAUI video apps"
@@ -126,6 +128,8 @@ jobs:
             echo "dotnet add package Net.Agora.Chat --version ${AGORA_CHAT_PACKAGE_VERSION}              # chat / IM, everything else"
             echo "dotnet add package Net.Agora.Whiteboard.Maui --version ${AGORA_WHITEBOARD_PACKAGE_VERSION}   # MAUI whiteboard apps"
             echo "dotnet add package Net.Agora.Whiteboard --version ${AGORA_WHITEBOARD_PACKAGE_VERSION}        # whiteboard, everything else"
+            echo "dotnet add package Net.Agora.Fastboard.Maui --version ${AGORA_FASTBOARD_PACKAGE_VERSION}    # MAUI whiteboard apps, toolbar included"
+            echo "dotnet add package Net.Agora.Fastboard --version ${AGORA_FASTBOARD_PACKAGE_VERSION}         # same, everything else"
             echo "\`\`\`"
           } > release-notes.md
 

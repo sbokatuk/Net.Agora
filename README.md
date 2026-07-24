@@ -22,6 +22,8 @@ dotnet add package Net.Agora.Chat.Maui    # MAUI chat (IM) apps
 dotnet add package Net.Agora.Chat         # chat (IM), everything else
 dotnet add package Net.Agora.Whiteboard.Maui   # MAUI whiteboard apps: adds the board view
 dotnet add package Net.Agora.Whiteboard        # whiteboard, everything else
+dotnet add package Net.Agora.Fastboard.Maui    # MAUI whiteboard apps, toolbar included
+dotnet add package Net.Agora.Fastboard         # same, everything else
 ```
 
 ```csharp
@@ -104,13 +106,24 @@ await board.JoinAsync();
 board.SetTool(AgoraWhiteboardTool.Pencil, color: 0xE81123, strokeWidth: 4);
 ```
 
+Fastboard is the same board with netless's toolbar already drawn and wired — tools, colours,
+undo/redo, page navigation — for an app that wants a working whiteboard rather than a canvas to
+build a UI around. Same identifiers, one fewer thing to write:
+
+```csharp
+// <agora:AgoraFastboardView x:Name="Board" /> in your XAML
+var board = Board.CreateClient(new AgoraFastboardOptions { /* the same four identifiers */ });
+
+await board.JoinAsync();     // the toolbar comes up with it
+```
+
 Pick one RTC product per app: Video already carries the full audio surface, and the two RTC
 products' native artifacts collide (same Java classes on Android, same `AgoraRtcKit` framework on
 iOS). Signaling, Chat and Whiteboard coexist with either, and with each other.
 
 ## Status
 
-This repository covers Agora's Video, Voice, Signaling, Chat and Interactive Whiteboard SDKs, wired end to end: the raw Android/iOS
+This repository covers Agora's Video, Voice, Signaling, Chat, Interactive Whiteboard and Fastboard SDKs, wired end to end: the raw Android/iOS
 bindings (in the two sibling repositories above), the cross-platform clients, the MAUI packages,
 package tests, sample apps, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact state.
 
@@ -121,6 +134,7 @@ package tests, sample apps, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact
 | Signaling | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | n/a — no glue needed, same package everywhere |
 | Chat | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ glue (no view — chat renders nothing) |
 | Whiteboard | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ board view + glue |
+| Fastboard | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ board view + glue |
 
 ## How this repository works
 
