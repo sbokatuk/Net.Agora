@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The cross-platform API: joins an Agora Interactive Whiteboard room through Fastboard —
+    netless's ready-made UI over the board — with one surface over Android's Java SDK and, on iOS,
+    the Objective-C shim in sbokatuk/Net.Agora.iOS's native/AgoraFastboardBridge, because the iOS
+    SDK is Swift.
+
+    Deliberately no MAUI dependency here, and a MAUI companion package that carries more than the
+    others': the board needs a *view*, so Net.Agora.Fastboard.Maui has an AgoraFastboardView and
+    its handlers, like Net.Agora.Video.Maui rather than the glue-only Voice and Chat ones.
+
+    No Mac Catalyst leg: the Fastboard binding is built for iOS device and simulator only — see
+    sbokatuk/Net.Agora.iOS's build/build-whiteboard.sh.
+
+    Both platforms' target frameworks are listed together, which is why this can only be packed on
+    macOS — restoring the iOS leg needs the iOS workload. See build/BuildNugets.sh.
+
+    Net.Agora.Fastboard.Android and Net.Agora.Fastboard.iOS are NOT part of this repository — this package
+    depends on them the same way any consumer would, at an exact pinned version
+    (NetAgoraFastboardAndroidVersion / NetAgoraFastboardIosVersion in Directory.Build.props), restored from
+    nuget.org (or, for local development, from the ./artifacts folder source in NuGet.config once
+    those two repositories' own build/BuildNugets.sh has packed them there). See docs/BUILD.md.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+
+    <AssemblyName>Net.Agora.Fastboard</AssemblyName>
+    <RootNamespace>Net.Agora.Fastboard</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <VersionPrefix>$(AgoraFastboardIosVersion).$(AgoraFastboardBindingRevision)</VersionPrefix>
+  </PropertyGroup>
+
+  <!--
+    Platform code is picked per target framework rather than by the default glob, which would try
+    to compile the Android half into the iOS assembly.
+  -->
+  <ItemGroup>
+    <Compile Remove="Platforms/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <Compile Include="Platforms/Android/**/*.cs" />
+    <PackageReference Include="Net.Agora.Fastboard.Android" Version="[$(NetAgoraFastboardAndroidVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <Compile Include="Platforms/Apple/**/*.cs" />
+    <PackageReference Include="Net.Agora.Fastboard.iOS" Version="[$(NetAgoraFastboardIosVersion)]" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Net.Agora.Fastboard</PackageId>
+    <Title>Cross-platform .NET client for Fastboard, the Agora Interactive Whiteboard UI.</Title>
+    <Description>One API over Fastboard — netless's ready-made UI for the Agora Interactive Whiteboard — for Android and iOS: join a room and get a board with a working toolbar rather than a bare canvas. Pulls in the platform binding that matches whichever target framework you build. Add Net.Agora.Fastboard.Maui in a .NET MAUI app to get the board as a MAUI view. For a bare canvas to build your own UI around, use Net.Agora.Whiteboard instead.</Description>
+    <PackageTags>Agora;Fastboard;Whiteboard;drawing;collaboration;SDK;MAUI;Android;iOS;Binding</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+</Project>

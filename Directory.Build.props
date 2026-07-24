@@ -30,6 +30,8 @@
     -->
     <NetAgoraWhiteboardAndroidVersion>2.16.123.1</NetAgoraWhiteboardAndroidVersion>
     <NetAgoraWhiteboardIosVersion>2.16.137.1</NetAgoraWhiteboardIosVersion>
+    <NetAgoraFastboardAndroidVersion>1.8.1.1</NetAgoraFastboardAndroidVersion>
+    <NetAgoraFastboardIosVersion>1.4.5.1</NetAgoraFastboardIosVersion>
 
     <!--
       Each product's own version tracks its iOS platform package's native version component — the
@@ -59,6 +61,8 @@
     -->
     <AgoraWhiteboardIosVersion>2.16.137</AgoraWhiteboardIosVersion>
     <AgoraWhiteboardBindingRevision>1</AgoraWhiteboardBindingRevision>
+    <AgoraFastboardIosVersion>1.4.5</AgoraFastboardIosVersion>
+    <AgoraFastboardBindingRevision>1</AgoraFastboardBindingRevision>
     <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
   </PropertyGroup>
 

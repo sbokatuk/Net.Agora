@@ -31,7 +31,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PRODUCT="${1:-}"
 if [ -z "${PRODUCT}" ]; then
     echo "usage: $0 <product> [--suffix <prerelease>]" >&2
-    echo "  known products: video, voice, signaling, chat, whiteboard" >&2
+    echo "  known products: video, voice, signaling, chat, whiteboard, fastboard" >&2
     exit 2
 fi
 
@@ -63,6 +63,9 @@ case "${PRODUCT}" in
         ;;
     whiteboard)
         NAME="Whiteboard"
+        ;;
+    fastboard)
+        NAME="Fastboard"
         ;;
     *)
         echo "error: unknown product '${PRODUCT}'" >&2

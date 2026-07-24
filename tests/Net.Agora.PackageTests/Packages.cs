@@ -34,6 +34,10 @@ public static class Packages
     public const string WhiteboardIOS = "Net.Agora.Whiteboard.iOS";
     public const string Whiteboard = "Net.Agora.Whiteboard";
     public const string WhiteboardMaui = "Net.Agora.Whiteboard.Maui";
+    public const string FastboardAndroid = "Net.Agora.Fastboard.Android";
+    public const string FastboardIOS = "Net.Agora.Fastboard.iOS";
+    public const string Fastboard = "Net.Agora.Fastboard";
+    public const string FastboardMaui = "Net.Agora.Fastboard.Maui";
 
     /// <summary>
     /// One row per product this repository packs: the façade package, its MAUI companion, and the
@@ -51,6 +55,7 @@ public static class Packages
         // The one product whose two platform packages are on different version lines — netless
         // releases the Android and iOS whiteboards from separate repositories.
         (Whiteboard, WhiteboardMaui, WhiteboardAndroid, WhiteboardIOS),
+        (Fastboard, FastboardMaui, FastboardAndroid, FastboardIOS),
     ];
 
     public static IEnumerable<object[]> ProductRows =>
