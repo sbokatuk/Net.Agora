@@ -67,6 +67,7 @@ printf '{ "sdk": { "version": "%s", "rollForward": "latestFeature" } }\n' "${sdk
 rm -rf "${HOME}/.nuget/packages/net.agora.${PRODUCT_LOWER}/${VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.video.android/${NET_AGORA_VIDEO_ANDROID_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.voice.android/${NET_AGORA_VOICE_ANDROID_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.signaling.android/${NET_AGORA_SIGNALING_ANDROID_VERSION}"
 
 rm -rf "${REPO_ROOT}/tests/Net.Agora.DeviceTests/obj" \
        "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin"

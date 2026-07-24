@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The cross-platform API: logs in to Agora Signaling (RTM), subscribes to message channels and
+    publishes/receives messages with one surface over Android's RtmClient and iOS's
+    AgoraRtmClientKit.
+
+    Deliberately no MAUI dependency — and, unlike the RTC products, no MAUI companion package at
+    all: RTM needs no Android Context and renders nothing, so there is no platform glue to hide.
+
+    No Mac Catalyst leg: Agora ships no maccatalyst slice for AgoraRtmKit.xcframework — see
+    sbokatuk/Net.Agora.iOS's README.
+
+    Both platforms' target frameworks are listed together, which is why this can only be packed on
+    macOS — restoring the iOS leg needs the iOS workload. See build/BuildNugets.sh.
+
+    Net.Agora.Signaling.Android and Net.Agora.Signaling.iOS are NOT part of this repository — this
+    package depends on them the same way any consumer would, at an exact pinned version
+    (NetAgoraSignalingAndroidVersion / NetAgoraSignalingIosVersion in Directory.Build.props),
+    restored from nuget.org (or, for local development, from the ./artifacts folder source in
+    NuGet.config once those two repositories' own build/BuildNugets.sh has packed them there).
+    See docs/BUILD.md.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+
+    <AssemblyName>Net.Agora.Signaling</AssemblyName>
+    <RootNamespace>Net.Agora.Signaling</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <VersionPrefix>$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)</VersionPrefix>
+  </PropertyGroup>
+
+  <!--
+    Platform code is picked per target framework rather than by the default glob, which would try
+    to compile the Android half into the iOS assembly.
+  -->
+  <ItemGroup>
+    <Compile Remove="Platforms/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <Compile Include="Platforms/Android/**/*.cs" />
+    <PackageReference Include="Net.Agora.Signaling.Android" Version="[$(NetAgoraSignalingAndroidVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <Compile Include="Platforms/Apple/**/*.cs" />
+    <PackageReference Include="Net.Agora.Signaling.iOS" Version="[$(NetAgoraSignalingIosVersion)]" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Net.Agora.Signaling</PackageId>
+    <Title>Cross-platform .NET client for the Agora Signaling (RTM) SDK.</Title>
+    <Description>One API over the Agora Signaling SDK for Android and iOS: log in, subscribe to channels and publish/receive messages with awaitable calls and ordinary .NET events, instead of writing a per-platform adapter over Java result callbacks and Objective-C completion blocks. Pulls in the platform binding that matches whichever target framework you build. Works in .NET MAUI and plain .NET for Android / .NET for iOS apps alike — no MAUI-specific companion needed.</Description>
+    <PackageTags>Agora;Signaling;RTM;messaging;realtime;SDK;MAUI;Android;iOS;Binding</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+</Project>

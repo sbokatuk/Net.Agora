@@ -14,9 +14,13 @@ name: build
 on:
   workflow_call:
     inputs:
-      version:
-        description: NuGet version to stamp on every package.
-        required: true
+      suffix:
+        description: >
+          Optional prerelease suffix (e.g. beta.12.34) appended to every product's own version.
+          The products sit on independent native version lines (RTC 4.6.x, RTM 2.2.x), so there
+          is no single version to stamp — each packs at its own pin from Directory.Build.props.
+        required: false
+        default: ''
         type: string
       e2e-ios-target-frameworks:
         description: >
@@ -107,8 +111,13 @@ jobs:
 
       - name: Pack
         run: |
-          ./build/BuildNugets.sh video "${{ inputs.version }}"
-          ./build/BuildNugets.sh voice "${{ inputs.version }}"
+          for product in video voice signaling; do
+            if [ -n "${{ inputs.suffix }}" ]; then
+              ./build/BuildNugets.sh "$product" --suffix "${{ inputs.suffix }}"
+            else
+              ./build/BuildNugets.sh "$product"
+            fi
+          done
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
@@ -120,40 +129,38 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Build the sample against the packed packages
+      - name: Build the samples against the packed packages
         run: |
-          # Proves the façade is actually consumable: it restores (Net.Agora.Video.Android /
-          # .iOS coming from nuget.org at the pinned version), resolves to the right platform
-          # binding per target framework, and the iOS half links.
+          # Proves each façade is actually consumable: it restores (the platform packages coming
+          # from nuget.org at the pinned versions), resolves to the right platform binding per
+          # target framework, and the iOS half links.
           #
           # Debug, and iOS pinned to a simulator runtime identifier: an iOS Release build trims and
           # AOT-compiles, which with the ~25 MB AgoraRtcKit framework costs real runner time for no
           # added signal. Debug still restores, resolves and links, which is what this step is for.
-          echo "::group::sample net9.0-android35.0"
-          dotnet build samples/Net.Agora.Sample \
-            -c Debug -f net9.0-android35.0 \
-            -p:AgoraVideoPackageVersion="${{ inputs.version }}"
-          echo "::endgroup::"
+          . ./build/pins.sh
+          s="${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
 
-          echo "::group::sample net9.0-ios18.0"
-          dotnet build samples/Net.Agora.Sample \
-            -c Debug -f net9.0-ios18.0 \
-            -p:RuntimeIdentifier=iossimulator-arm64 \
-            -p:AgoraVideoPackageVersion="${{ inputs.version }}"
-          echo "::endgroup::"
+          for tfm_args in "net9.0-android35.0" "net9.0-ios18.0 -p:RuntimeIdentifier=iossimulator-arm64"; do
+            set -- $tfm_args
+            echo "::group::sample $1"
+            dotnet build samples/Net.Agora.Sample \
+              -c Debug -f "$@" \
+              -p:AgoraVideoPackageVersion="${AGORA_VIDEO_PACKAGE_VERSION}${s}"
+            echo "::endgroup::"
 
-          echo "::group::voice sample net9.0-android35.0"
-          dotnet build samples/Net.Agora.Sample.Voice \
-            -c Debug -f net9.0-android35.0 \
-            -p:AgoraVoicePackageVersion="${{ inputs.version }}"
-          echo "::endgroup::"
+            echo "::group::voice sample $1"
+            dotnet build samples/Net.Agora.Sample.Voice \
+              -c Debug -f "$@" \
+              -p:AgoraVoicePackageVersion="${AGORA_VOICE_PACKAGE_VERSION}${s}"
+            echo "::endgroup::"
 
-          echo "::group::voice sample net9.0-ios18.0"
-          dotnet build samples/Net.Agora.Sample.Voice \
-            -c Debug -f net9.0-ios18.0 \
-            -p:RuntimeIdentifier=iossimulator-arm64 \
-            -p:AgoraVoicePackageVersion="${{ inputs.version }}"
-          echo "::endgroup::"
+            echo "::group::signaling sample $1"
+            dotnet build samples/Net.Agora.Sample.Signaling \
+              -c Debug -f "$@" \
+              -p:AgoraSignalingPackageVersion="${AGORA_SIGNALING_PACKAGE_VERSION}${s}"
+            echo "::endgroup::"
+          done
 
   validate:
     name: validate packages
@@ -196,8 +203,9 @@ jobs:
       fail-fast: false
       matrix:
         # One leg per product: the Video and Voice façades' platform packages carry the same
-        # native artifacts, so a single device test app holds exactly one of them.
-        product: [Video, Voice]
+        # native artifacts, so a single device test app holds exactly one of them — and Signaling
+        # is a different product entirely.
+        product: [Video, Voice, Signaling]
         target-framework: ${{ fromJSON(inputs.e2e-ios-target-frameworks) }}
     steps:
       - uses: actions/checkout@v4
@@ -229,7 +237,15 @@ jobs:
           path: artifacts
 
       - name: Run checks on simulator
-        run: ./.github/scripts/run-simulator-tests.sh "${{ inputs.version }}" "${{ matrix.target-framework }}" "${{ matrix.product }}"
+        run: |
+          . ./build/pins.sh
+          case "${{ matrix.product }}" in
+            Video) base="${AGORA_VIDEO_PACKAGE_VERSION}" ;;
+            Voice) base="${AGORA_VOICE_PACKAGE_VERSION}" ;;
+            Signaling) base="${AGORA_SIGNALING_PACKAGE_VERSION}" ;;
+          esac
+          version="${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
+          ./.github/scripts/run-simulator-tests.sh "${version}" "${{ matrix.target-framework }}" "${{ matrix.product }}"
 
       - name: Upload simulator logs
         if: always()
@@ -248,7 +264,7 @@ jobs:
       fail-fast: false
       matrix:
         # One leg per product — see the iOS job's matrix comment.
-        product: [Video, Voice]
+        product: [Video, Voice, Signaling]
         target-framework: ${{ fromJSON(inputs.e2e-android-target-frameworks) }}
     # Linux, unlike the pack job: the emulator needs KVM, which the macOS runners do not have, and
     # the Android head of the device app needs no Apple toolchain to build.
@@ -311,6 +327,19 @@ jobs:
           sudo rm -rf /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
           df -h /
 
+      - name: Resolve this leg's product version
+        # In its own step rather than inside the emulator action's script: the action runs its
+        # script with /usr/bin/sh, and pins.sh is bash (set -o pipefail). run: steps default to
+        # bash, and the resolved version crosses over through GITHUB_ENV.
+        run: |
+          . ./build/pins.sh
+          case "${{ matrix.product }}" in
+            Video) base="${AGORA_VIDEO_PACKAGE_VERSION}" ;;
+            Voice) base="${AGORA_VOICE_PACKAGE_VERSION}" ;;
+            Signaling) base="${AGORA_SIGNALING_PACKAGE_VERSION}" ;;
+          esac
+          echo "AGORA_E2E_VERSION=${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}" >> "$GITHUB_ENV"
+
       - name: Run checks on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -320,7 +349,7 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front emulated
           disable-animations: true
-          script: ./.github/scripts/run-emulator-tests.sh "${{ inputs.version }}" "${{ matrix.target-framework }}" "${{ matrix.product }}"
+          script: ./.github/scripts/run-emulator-tests.sh "$AGORA_E2E_VERSION" "${{ matrix.target-framework }}" "${{ matrix.product }}"
 
       - name: Upload emulator logs
         if: always()

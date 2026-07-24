@@ -1,7 +1,12 @@
 // One suite, two products: the same checks compile against the Video or the Voice façade (see
 // the csproj's AgoraDeviceProduct), so the aliases below are the only per-product spelling. The
 // few genuinely product-specific checks sit behind AGORA_VOICE.
-#if AGORA_VOICE
+#if AGORA_SIGNALING
+using Net.Agora.Signaling;
+using AgoraClient = Net.Agora.Signaling.AgoraSignalingClient;
+using AgoraClientException = Net.Agora.Signaling.AgoraSignalingException;
+using AgoraClientOptions = Net.Agora.Signaling.AgoraSignalingOptions;
+#elif AGORA_VOICE
 using Net.Agora.Voice;
 using AgoraClient = Net.Agora.Voice.AgoraVoiceClient;
 using AgoraClientException = Net.Agora.Voice.AgoraVoiceException;
@@ -89,6 +94,16 @@ public static class SmokeTests
     /// <summary>Every check, in the order they must run.</summary>
     public static SmokeTest[] All =>
     [
+#if AGORA_SIGNALING
+        new("a missing App ID or user ID is rejected before any native call", MissingAppIdIsRejected),
+        new("constructs the client", ConstructsTheClient),
+        new("an empty renew token is rejected, a shaped one is accepted", RenewsAToken),
+        new("publishing before a login fails as a signaling error", PublishBeforeLoginFails),
+        new("cancelling the token surfaces as OperationCanceledException", CancellationIsDistinctFromTimeout),
+        new("an unregistered App ID fails the login within the configured timeout", LoginFailsWithinTimeout),
+        new("logout without a login is a no-op", LogoutWithoutALoginIsANoOp),
+        new("disposes cleanly", DisposesCleanly),
+#else
         new("a missing App ID is rejected before any native call", MissingAppIdIsRejected),
         new("constructs a live-broadcasting broadcaster client", ConstructsTheClient),
 #if AGORA_VOICE
@@ -102,17 +117,19 @@ public static class SmokeTests
         new("an unregistered App ID fails the join within the configured timeout", JoinFailsWithinTimeout),
         new("leave after a failed join is a no-op", LeaveAfterAFailedJoinIsANoOp),
         new("disposes cleanly", DisposesCleanly),
+#endif
     ];
 
     private static void Report(string message) => Reporter(message);
 
     private static AgoraClient CreateClient(AgoraClientOptions options)
     {
-#if ANDROID
+#if ANDROID && !AGORA_SIGNALING
         return new AgoraClient(
             options,
             AndroidContext ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set."));
 #else
+        // Signaling needs no Context on Android — the constructor is the same on both platforms.
         return new AgoraClient(options);
 #endif
     }
@@ -120,6 +137,132 @@ public static class SmokeTests
     private static AgoraClient Client =>
         _client ?? throw new InvalidOperationException("the client has not been constructed yet.");
 
+#if AGORA_SIGNALING
+    private static void MissingAppIdIsRejected()
+    {
+        // The one call in this façade's own code (rather than the bindings') that validates
+        // before touching a native client — Signaling requires a user ID too.
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions()),
+            "a missing App ID");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppId = AppId }),
+            "a missing user ID");
+    }
+
+    private static void ConstructsTheClient()
+    {
+        _client = CreateClient(new AgoraClientOptions
+        {
+            AppId = AppId,
+            UserId = "net-agora-devicetests",
+            Timeout = JoinTimeout,
+        });
+
+        Assert(!Client.IsLoggedIn, "IsLoggedIn is true before any login was attempted.");
+    }
+
+    private static void RenewsAToken()
+    {
+        // The empty case is the façade's own guard; the shaped case crosses into the SDK, whose
+        // answer to a renewal outside a session is its business — not throwing is the façade's
+        // contract.
+        Throws<ArgumentException>(() => Client.RenewToken(" "), "a whitespace renew token");
+
+        Client.RenewToken(AppId);
+    }
+
+    private static async Task PublishBeforeLoginFails()
+    {
+        // RTM answers every operation through its own callback, so this is the cheapest full
+        // round trip the suite has: the call crosses the bridge, the SDK rejects it (not logged
+        // in), and the failure comes back as the façade's typed exception — no network, no
+        // credentials.
+        var error = await ThrowsAsync<AgoraClientException>(
+            () => Client.PublishAsync(ChannelId, "hello"),
+            "a publish before any login");
+
+        Report($"publish rejected: [{error.ErrorCode}] {error.Message}");
+    }
+
+    private static async Task CancellationIsDistinctFromTimeout()
+    {
+        using var cancelSoon = new CancellationTokenSource();
+
+        var login = Client.LoginAsync(cancelSoon.Token);
+
+        // Cancelled synchronously, before any response could arrive, so "the caller's token
+        // wins" is deterministic rather than a race against service latency — same reasoning as
+        // the RTC flavours.
+        cancelSoon.Cancel();
+
+        await ThrowsAsync<OperationCanceledException>(
+            () => login,
+            "a login cancelled through its own token");
+    }
+
+    private static async Task LoginFailsWithinTimeout()
+    {
+        // A failing login is also the one moment this credential-less suite can see the
+        // connection lifecycle move, so the event wiring is asserted here rather than in a check
+        // of its own.
+        var states = new List<AgoraConnectionState>();
+        void OnState(object? sender, AgoraConnectionStateEventArgs e)
+        {
+            lock (states)
+            {
+                states.Add(e.State);
+            }
+            Report($"connection state: {e.State} (reason {e.Reason})");
+        }
+
+        var started = DateTimeOffset.UtcNow;
+
+        Client.ConnectionStateChanged += OnState;
+        try
+        {
+            var error = await ThrowsAsync<AgoraClientException>(
+                () => Client.LoginAsync(),
+                "a login with an unregistered App ID");
+
+            Report($"failed after {(DateTimeOffset.UtcNow - started).TotalSeconds:0.0}s: " +
+                $"[{error.ErrorCode}] {error.Message}");
+        }
+        finally
+        {
+            Client.ConnectionStateChanged -= OnState;
+        }
+
+        // Observed, not asserted, unlike the RTC flavours: RTM only starts reporting connection
+        // states once a link attempt actually begins, and a login the SDK rejects up front (an
+        // unregistered App ID) never gets that far — seen on the first run of this suite.
+        lock (states)
+        {
+            Report(states.Count > 0
+                ? $"observed {states.Count} connection state change(s)"
+                : "no connection state change before the rejection — expected for an up-front refusal");
+        }
+
+        Assert(!Client.IsLoggedIn, "IsLoggedIn is true after a login that should have failed.");
+    }
+
+    private static void LogoutWithoutALoginIsANoOp()
+    {
+        Client.Logout();
+        Client.Logout();
+
+        Assert(!Client.IsLoggedIn, "IsLoggedIn is true after Logout.");
+    }
+
+    private static void DisposesCleanly()
+    {
+        Client.Dispose();
+        // IDisposable.Dispose must tolerate being called more than once.
+        Client.Dispose();
+
+        Assert(!Client.IsLoggedIn, "IsLoggedIn is true after Dispose.");
+    }
+#else
     private static void MissingAppIdIsRejected()
     {
         // The one call in this façade's own code (rather than the bindings') that validates before
@@ -310,6 +453,7 @@ public static class SmokeTests
 
         Assert(!Client.IsJoined, "IsJoined is true after Dispose.");
     }
+#endif
 
     private static void Assert(bool condition, string message)
     {

@@ -15,20 +15,85 @@ public partial class MainPage : ContentPage
     private readonly StringBuilder _status = new();
     private AgoraVideoClient? _client;
     private uint? _remoteUid;
+    private bool _previewing;
 
     public MainPage()
     {
         InitializeComponent();
     }
 
+    private async void OnPreviewClicked(object sender, EventArgs e)
+    {
+        // The "check your hair" flow: local camera into the local view before any join —
+        // StartPreview needs no channel, no token and no network, just the camera.
+        if (_previewing)
+        {
+            _client?.StopPreview();
+            _previewing = false;
+            PreviewButton.Text = "Preview";
+            Append("preview stopped");
+            return;
+        }
+
+        if (!await RequestCapturePermissionsAsync())
+        {
+            Append("camera and microphone permission denied");
+            return;
+        }
+
+        var client = EnsureClient();
+        if (client is null)
+        {
+            return;
+        }
+
+        client.EnableVideo();
+        client.SetLocalView(LocalView);
+        client.StartPreview();
+        _previewing = true;
+        PreviewButton.Text = "Stop preview";
+        SwitchCameraButton.IsEnabled = true;
+        Append("previewing — Flip switches the camera");
+    }
+
+    /// <summary>
+    /// One client for preview and join alike, created on first use (on Android it needs the
+    /// current activity, and the video views need their handlers — neither exists until the page
+    /// is on screen). Leave disposes it, so a fresh App ID takes effect on the next attempt.
+    /// </summary>
+    private AgoraVideoClient? EnsureClient()
+    {
+        if (_client is not null)
+        {
+            return _client;
+        }
+
+        var appId = AppIdEntry.Text?.Trim();
+        if (string.IsNullOrEmpty(appId))
+        {
+            Append("enter an App ID first");
+            return null;
+        }
+
+        var options = new AgoraVideoOptions
+        {
+            AppId = appId,
+            Token = string.IsNullOrEmpty(TokenEntry.Text) ? null : TokenEntry.Text.Trim(),
+        };
+
+        var client = options.CreateClient();
+        WireEvents(client);
+        _client = client;
+        return client;
+    }
+
     private async void OnJoinClicked(object sender, EventArgs e)
     {
-        var appId = AppIdEntry.Text?.Trim();
         var channelId = ChannelIdEntry.Text?.Trim();
 
-        if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(channelId))
+        if (string.IsNullOrEmpty(channelId))
         {
-            Append("enter an App ID and a channel id first");
+            Append("enter a channel id first");
             return;
         }
 
@@ -42,19 +107,42 @@ public partial class MainPage : ContentPage
 
         try
         {
-            // Built here rather than in the constructor: on Android CreateClient needs the
-            // current activity, and the video views need their handlers, neither of which exists
-            // until the page is on screen.
-            var options = new AgoraVideoOptions
+            var client = EnsureClient();
+            if (client is null)
             {
-                AppId = appId,
-                Token = string.IsNullOrEmpty(TokenEntry.Text) ? null : TokenEntry.Text.Trim(),
-            };
+                return;
+            }
 
-            var client = options.CreateClient();
             client.SetLocalView(LocalView);
 
-            // The SDK raises callbacks on its own thread, so anything touching the UI hops back.
+            client.EnableVideo();
+            client.SetSpeakerphone(SpeakerSwitch.IsToggled);
+
+            // Who-is-speaking reports every 200 ms — drives the label under the controls.
+            client.EnableVolumeIndication(TimeSpan.FromMilliseconds(200));
+
+            // Completes when the server confirms, so there is no callback to wire up for the
+            // common case, and a failure to join surfaces as an exception right here.
+            await client.JoinAsync(channelId);
+
+            _client = client;
+            _previewing = false;
+            PreviewButton.Text = "Preview";
+            SetJoined(true);
+        }
+        catch (AgoraVideoException exception)
+        {
+            Append($"failed to join: {exception.Message}");
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    /// <summary>The SDK raises callbacks on its own thread, so anything touching the UI hops back.</summary>
+    private void WireEvents(AgoraVideoClient client)
+    {
             client.Joined += (_, ev) => Append($"joined {ev.ChannelId} as {ev.Uid}");
             client.Left += (_, ev) => Append($"left {ev.ChannelId}");
             client.UserJoined += (_, ev) => MainThread.BeginInvokeOnMainThread(() =>
@@ -92,33 +180,17 @@ public partial class MainPage : ContentPage
                     : "nobody is speaking";
             });
             client.Error += (_, ev) => Append($"error {ev.ErrorCode}: {ev.Message}");
-
-            client.EnableVideo();
-            client.SetSpeakerphone(SpeakerSwitch.IsToggled);
-
-            // Who-is-speaking reports every 200 ms — drives the label under the controls.
-            client.EnableVolumeIndication(TimeSpan.FromMilliseconds(200));
-
-            // Completes when the server confirms, so there is no callback to wire up for the
-            // common case, and a failure to join surfaces as an exception right here.
-            await client.JoinAsync(channelId);
-
-            _client = client;
-            SetJoined(true);
-        }
-        catch (AgoraVideoException exception)
-        {
-            Append($"failed to join: {exception.Message}");
-        }
-        finally
-        {
-            SetBusy(false);
-        }
     }
 
     private void OnLeaveClicked(object sender, EventArgs e)
     {
+        // Dispose rather than just Leave: the sample lets you change the App ID between runs,
+        // and the engine is created with one — a fresh client picks the new value up.
         _client?.Leave();
+        _client?.Dispose();
+        _client = null;
+        _previewing = false;
+        PreviewButton.Text = "Preview";
         Append("left");
         SetJoined(false);
     }
@@ -156,6 +228,7 @@ public partial class MainPage : ContentPage
 
     private void SetJoined(bool joined)
     {
+        PreviewButton.IsEnabled = !joined;
         JoinButton.IsEnabled = !joined;
         LeaveButton.IsEnabled = joined;
         SwitchCameraButton.IsEnabled = joined;

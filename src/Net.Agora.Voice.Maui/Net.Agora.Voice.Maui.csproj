@@ -50,6 +50,7 @@
       falls through to $(VersionPrefix) rather than producing an invalid empty pin '[]'.
     -->
     <AgoraVoiceDependencyVersion Condition=" '$(AgoraVoiceDependencyVersion)' == '' ">$(Version)</AgoraVoiceDependencyVersion>
+    <AgoraVoiceDependencyVersion Condition=" '$(AgoraVoiceDependencyVersion)' == '' And '$(VersionSuffix)' != '' ">$(VersionPrefix)-$(VersionSuffix)</AgoraVoiceDependencyVersion>
     <AgoraVoiceDependencyVersion Condition=" '$(AgoraVoiceDependencyVersion)' == '' ">$(VersionPrefix)</AgoraVoiceDependencyVersion>
   </PropertyGroup>
 

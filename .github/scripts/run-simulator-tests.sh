@@ -55,6 +55,7 @@ printf '{ "sdk": { "version": "%s", "rollForward": "latestFeature" } }\n' "${sdk
 rm -rf "${HOME}/.nuget/packages/net.agora.${PRODUCT_LOWER}/${VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.video.ios/${NET_AGORA_VIDEO_IOS_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.voice.ios/${NET_AGORA_VOICE_IOS_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.signaling.ios/${NET_AGORA_SIGNALING_IOS_VERSION}"
 
 # The app's own intermediate output has to go too, not just the NuGet cache. The iOS package's
 # native payload is extracted out of the package into obj/ and copied into the .app, and neither

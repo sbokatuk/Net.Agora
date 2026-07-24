@@ -24,6 +24,7 @@
 
         <VerticalStackLayout Grid.Row="2" Spacing="8">
             <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                <Button x:Name="PreviewButton" Text="Preview" Clicked="OnPreviewClicked" />
                 <Button x:Name="JoinButton" Text="Join" Clicked="OnJoinClicked" />
                 <Button x:Name="LeaveButton" Text="Leave" Clicked="OnLeaveClicked" IsEnabled="False" />
                 <Button x:Name="SwitchCameraButton" Text="Flip" Clicked="OnSwitchCameraClicked" IsEnabled="False" />

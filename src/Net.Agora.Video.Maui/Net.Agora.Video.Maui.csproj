@@ -48,6 +48,7 @@
       falls through to $(VersionPrefix) rather than producing an invalid empty pin '[]'.
     -->
     <AgoraVideoDependencyVersion Condition=" '$(AgoraVideoDependencyVersion)' == '' ">$(Version)</AgoraVideoDependencyVersion>
+    <AgoraVideoDependencyVersion Condition=" '$(AgoraVideoDependencyVersion)' == '' And '$(VersionSuffix)' != '' ">$(VersionPrefix)-$(VersionSuffix)</AgoraVideoDependencyVersion>
     <AgoraVideoDependencyVersion Condition=" '$(AgoraVideoDependencyVersion)' == '' ">$(VersionPrefix)</AgoraVideoDependencyVersion>
   </PropertyGroup>
 

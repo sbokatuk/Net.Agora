@@ -15,10 +15,12 @@
     been observed lagging Maven Central by a point version.
   -->
   <PropertyGroup>
-    <NetAgoraVideoAndroidVersion>4.6.3.2</NetAgoraVideoAndroidVersion>
-    <NetAgoraVideoIosVersion>4.6.2.2</NetAgoraVideoIosVersion>
-    <NetAgoraVoiceAndroidVersion>4.6.3.2</NetAgoraVoiceAndroidVersion>
-    <NetAgoraVoiceIosVersion>4.6.2.2</NetAgoraVoiceIosVersion>
+    <NetAgoraVideoAndroidVersion>4.6.3.3</NetAgoraVideoAndroidVersion>
+    <NetAgoraVideoIosVersion>4.6.2.3</NetAgoraVideoIosVersion>
+    <NetAgoraVoiceAndroidVersion>4.6.3.3</NetAgoraVoiceAndroidVersion>
+    <NetAgoraVoiceIosVersion>4.6.2.3</NetAgoraVoiceIosVersion>
+    <NetAgoraSignalingAndroidVersion>2.2.6.1</NetAgoraSignalingAndroidVersion>
+    <NetAgoraSignalingIosVersion>2.2.6.1</NetAgoraSignalingIosVersion>
 
     <!--
       Each product's own version tracks its iOS platform package's native version component — the
@@ -29,7 +31,13 @@
     -->
     <AgoraVideoIosVersion>4.6.2</AgoraVideoIosVersion>
     <AgoraVoiceIosVersion>4.6.2</AgoraVoiceIosVersion>
-    <AgoraBindingRevision>2</AgoraBindingRevision>
+    <AgoraBindingRevision>3</AgoraBindingRevision>
+    <!--
+      Signaling is a different product with its own native version line (2.2.x) and its own
+      revision counter — it did not exist when the RTC products shipped revision 1.
+    -->
+    <AgoraSignalingIosVersion>2.2.6</AgoraSignalingIosVersion>
+    <AgoraSignalingBindingRevision>1</AgoraSignalingBindingRevision>
     <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
   </PropertyGroup>
 

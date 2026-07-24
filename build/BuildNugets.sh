@@ -8,11 +8,12 @@ set -euo pipefail
 # which is where you'd copy their own build/BuildNugets.sh output for local testing.
 #
 # Usage:
-#   ./build/BuildNugets.sh video                            # version from Directory.Build.props
-#   ./build/BuildNugets.sh voice 4.6.2.2-beta.4              # explicit package version
+#   ./build/BuildNugets.sh video                         # the product's own version from Directory.Build.props
+#   ./build/BuildNugets.sh voice --suffix beta.12.34     # same, with a prerelease suffix appended
 #
-# "video" and "voice" are wired end to end today (see docs/BUILD.md for the other products'
-# status; they have not been split into their own platform repositories yet).
+# Each product packs at its own <VersionPrefix>: the products sit on independent native version
+# lines (RTC 4.6.x, RTM 2.2.x), so no single version can be stamped across them — which is why
+# there is no way to pass one.
 #
 # Packages are written to ./artifacts.
 #
@@ -29,19 +30,33 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 PRODUCT="${1:-}"
 if [ -z "${PRODUCT}" ]; then
-    echo "usage: $0 <product> [version]" >&2
-    echo "  known products: video, voice" >&2
+    echo "usage: $0 <product> [--suffix <prerelease>]" >&2
+    echo "  known products: video, voice, signaling" >&2
     exit 2
 fi
+
+SUFFIX=""
+case "${2:-}" in
+    "") ;;
+    --suffix)
+        SUFFIX="${3:?--suffix needs a value}"
+        ;;
+    *)
+        echo "error: unknown argument '$2' (a single version cannot be stamped across" >&2
+        echo "       independent version lines — use --suffix for prereleases)" >&2
+        exit 2
+        ;;
+esac
 
 case "${PRODUCT}" in
     video)
         NAME="Video"
-        DEFAULT_VERSION="${AGORA_VIDEO_PACKAGE_VERSION}"
         ;;
     voice)
         NAME="Voice"
-        DEFAULT_VERSION="${AGORA_VOICE_PACKAGE_VERSION}"
+        ;;
+    signaling)
+        NAME="Signaling"
         ;;
     *)
         echo "error: unknown product '${PRODUCT}'" >&2
@@ -56,14 +71,16 @@ PASS1_BAND="net9"
 PASS2_BAND="net10"
 PASS2_SDK="10.0.100"
 
-VERSION="${2:-${DEFAULT_VERSION}}"
-case "${VERSION}" in
-    *[!A-Za-z0-9.+_-]*)
-        echo "error: invalid version '${VERSION}'" >&2
-        exit 1
-        ;;
-esac
-VERSION_ARG="-p:Version=${VERSION}"
+VERSION_ARG=""
+if [ -n "${SUFFIX}" ]; then
+    case "${SUFFIX}" in
+        *[!A-Za-z0-9.-]*)
+            echo "error: invalid suffix '${SUFFIX}'" >&2
+            exit 1
+            ;;
+    esac
+    VERSION_ARG="-p:VersionSuffix=${SUFFIX}"
+fi
 
 # Scratch directories for the two passes, deliberately *outside* artifacts/: NuGet folder sources
 # search subdirectories, so a pass directory under artifacts/ would let the metapackage restore

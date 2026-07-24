@@ -13,28 +13,26 @@ permissions:
 
 jobs:
   version:
-    name: resolve beta version
+    name: resolve beta suffix
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.resolve.outputs.version }}
+      suffix: ${{ steps.resolve.outputs.suffix }}
     steps:
-      - uses: actions/checkout@v4
-
       - id: resolve
         run: |
-          # Base version lives in Directory.Build.props; the PR number and run number make each
-          # published prerelease unique, since nuget.org never allows a version to be reused.
-          . ./build/pins.sh
-          version="${AGORA_VIDEO_PACKAGE_VERSION}-beta.${{ github.event.number }}.${{ github.run_number }}"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Building ${version}" >> "$GITHUB_STEP_SUMMARY"
+          # The PR number and run number make each published prerelease unique, since nuget.org
+          # never allows a version to be reused. Each product packs at its own base version from
+          # Directory.Build.props — see build/BuildNugets.sh.
+          suffix="beta.${{ github.event.number }}.${{ github.run_number }}"
+          echo "suffix=${suffix}" >> "$GITHUB_OUTPUT"
+          echo "Building every product at its own version with suffix -${suffix}" >> "$GITHUB_STEP_SUMMARY"
 
   build:
     name: build
     needs: version
     uses: ./.github/workflows/build.yml
     with:
-      version: ${{ needs.version.outputs.version }}
+      suffix: ${{ needs.version.outputs.suffix }}
 
   publish:
     name: publish beta to nuget.org
@@ -78,12 +76,17 @@ jobs:
             --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
             --skip-duplicate
 
+      - uses: actions/checkout@v4
+
       - name: Summarise
         run: |
+          . ./build/pins.sh
+          s="${{ needs.version.outputs.suffix }}"
           {
-            echo "### Published \`${{ needs.version.outputs.version }}\` to nuget.org"
+            echo "### Published beta packages to nuget.org"
             echo
             for id in Net.Agora.Video.Maui Net.Agora.Video Net.Agora.Voice.Maui Net.Agora.Voice; do
-              echo "- [${id}](https://www.nuget.org/packages/${id}/${{ needs.version.outputs.version }})"
+              echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_VIDEO_PACKAGE_VERSION}-${s})"
             done
+            echo "- [Net.Agora.Signaling](https://www.nuget.org/packages/Net.Agora.Signaling/${AGORA_SIGNALING_PACKAGE_VERSION}-${s})"
           } >> "$GITHUB_STEP_SUMMARY"

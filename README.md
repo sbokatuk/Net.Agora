@@ -17,6 +17,7 @@ dotnet add package Net.Agora.Video.Maui   # MAUI video apps: adds the video view
 dotnet add package Net.Agora.Video        # video, everything else
 dotnet add package Net.Agora.Voice.Maui   # MAUI voice-only apps
 dotnet add package Net.Agora.Voice        # voice-only, everything else
+dotnet add package Net.Agora.Signaling    # realtime messaging (RTM) — MAUI or plain, same package
 ```
 
 ```csharp
@@ -43,8 +44,26 @@ await client.JoinAsync("my-room");
 client.SetSpeakerphone(false);           // switch the live route mid-call
 ```
 
-Pick one product per app: Video already carries the full audio surface, and the two products'
-native artifacts collide (same Java classes on Android, same `AgoraRtcKit` framework on iOS).
+Signaling is the third product — login, channel subscribe, publish/receive — with the same
+awaitable shape; it has no MAUI companion because it needs no platform glue at all:
+
+```csharp
+var signaling = new AgoraSignalingClient(new AgoraSignalingOptions
+{
+    AppId = "your-app-id",
+    UserId = "alice",
+});
+
+signaling.MessageReceived += (_, e) => Show($"{e.Publisher}: {e.Text}");
+
+await signaling.LoginAsync();
+await signaling.SubscribeAsync("lobby");
+await signaling.PublishAsync("lobby", "hi all");
+```
+
+Pick one RTC product per app: Video already carries the full audio surface, and the two RTC
+products' native artifacts collide (same Java classes on Android, same `AgoraRtcKit` framework on
+iOS). Signaling coexists with either.
 
 ## Status
 
@@ -56,6 +75,7 @@ package tests, sample apps, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact
 | --- | --- | --- | --- | --- |
 | Video | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ view + glue |
 | Voice | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ glue (no view — voice renders nothing) |
+| Signaling | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | n/a — no glue needed, same package everywhere |
 
 ## How this repository works
 

@@ -14,7 +14,8 @@ Three repositories, each independently versioned and released — see the root
 - **[`Net.Agora.iOS`](https://github.com/sbokatuk/Net.Agora.iOS)** — the raw iOS bindings (Video
   and Voice).
 - **`Net.Agora`** (this repository) — the façades (`Net.Agora.Video`, `Net.Agora.Video.Maui`,
-  `Net.Agora.Voice`, `Net.Agora.Voice.Maui`) only. It binds no native code itself.
+  `Net.Agora.Voice`, `Net.Agora.Voice.Maui`, `Net.Agora.Signaling`) only. It binds no native
+  code itself.
 
 **This repository binds nothing.** No `ApiDefinition.cs`, no `.aar`, no
 `AndroidLibrary`/`NativeReference` — each façade depends on its platform packages the same way any
@@ -37,6 +38,8 @@ src/
   Net.Agora.Video.Maui/         the MAUI video view + platform glue
   Net.Agora.Voice/              the cross-platform Voice client
   Net.Agora.Voice.Maui/         the MAUI platform glue (no view — voice renders nothing)
+  Net.Agora.Signaling/          the cross-platform Signaling (RTM) client — no MAUI companion,
+                                 nothing platform-specific to hide
 tests/
   Net.Agora.PackageTests/       asserts this repository's own packages' shape and pinned dependencies
   Net.Agora.UnitTests/          the platform-neutral façade logic — options validation, the
@@ -47,6 +50,7 @@ tests/
 samples/
   Net.Agora.Sample/             the MAUI sample app (Video)
   Net.Agora.Sample.Voice/       the MAUI sample app (Voice)
+  Net.Agora.Sample.Signaling/   the MAUI sample app (Signaling — a tiny chat room)
 assets/                         the package icon
 Net.Agora.sln                   every project above except the sample, which consumes packed
                                  packages from ./artifacts and would break a plain restore
@@ -81,10 +85,15 @@ source):
 ./build/BuildNugets.sh    # (iOS needs ./build/fetch-video.sh and ./build/fetch-voice.sh run first)
 
 # Copy both repos' artifacts/*.nupkg into this repository's artifacts/, then:
-./build/BuildNugets.sh video                      # version from Directory.Build.props
-./build/BuildNugets.sh voice                      # same, for the Voice packages
-./build/BuildNugets.sh video 4.6.2.2-beta.4        # explicit version
+./build/BuildNugets.sh video                          # the product's own version from Directory.Build.props
+./build/BuildNugets.sh voice                          # same, for the Voice packages
+./build/BuildNugets.sh signaling                      # same, for Net.Agora.Signaling
+./build/BuildNugets.sh video --suffix beta.12.34      # prerelease: the product's version plus a suffix
 ```
+
+There is no way to pass a whole version: the products sit on independent native version lines
+(RTC 4.6.x, RTM 2.2.x), so each packs at its own pin and releases publish whatever the pins say —
+see the release workflow.
 
 Output lands in `./artifacts`, which `NuGet.config` exposes as a package source so the tests and
 the sample app resolve the packages that were just built rather than whatever is on nuget.org.
