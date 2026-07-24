@@ -113,6 +113,8 @@ jobs:
             echo "| \`Net.Agora.Signaling\` | Android, iOS | [${AGORA_SIGNALING_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Signaling/${AGORA_SIGNALING_PACKAGE_VERSION}) |"
             echo "| \`Net.Agora.Chat.Maui\` | Android, iOS | [${AGORA_CHAT_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Chat.Maui/${AGORA_CHAT_PACKAGE_VERSION}) |"
             echo "| \`Net.Agora.Chat\` | Android, iOS | [${AGORA_CHAT_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Chat/${AGORA_CHAT_PACKAGE_VERSION}) |"
+            echo "| \`Net.Agora.Whiteboard.Maui\` | Android, iOS | [${AGORA_WHITEBOARD_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Whiteboard.Maui/${AGORA_WHITEBOARD_PACKAGE_VERSION}) |"
+            echo "| \`Net.Agora.Whiteboard\` | Android, iOS | [${AGORA_WHITEBOARD_PACKAGE_VERSION}](https://www.nuget.org/packages/Net.Agora.Whiteboard/${AGORA_WHITEBOARD_PACKAGE_VERSION}) |"
             echo
             echo "\`\`\`"
             echo "dotnet add package Net.Agora.Video.Maui --version ${AGORA_VIDEO_PACKAGE_VERSION}       # MAUI video apps"
@@ -122,6 +124,8 @@ jobs:
             echo "dotnet add package Net.Agora.Signaling --version ${AGORA_SIGNALING_PACKAGE_VERSION}    # signaling / realtime messaging"
             echo "dotnet add package Net.Agora.Chat.Maui --version ${AGORA_CHAT_PACKAGE_VERSION}         # MAUI chat apps"
             echo "dotnet add package Net.Agora.Chat --version ${AGORA_CHAT_PACKAGE_VERSION}              # chat / IM, everything else"
+            echo "dotnet add package Net.Agora.Whiteboard.Maui --version ${AGORA_WHITEBOARD_PACKAGE_VERSION}   # MAUI whiteboard apps"
+            echo "dotnet add package Net.Agora.Whiteboard --version ${AGORA_WHITEBOARD_PACKAGE_VERSION}        # whiteboard, everything else"
             echo "\`\`\`"
           } > release-notes.md
 

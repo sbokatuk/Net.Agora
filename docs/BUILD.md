@@ -10,12 +10,12 @@ Three repositories, each independently versioned and released — see the root
 [README](../README.md#how-this-repository-works):
 
 - **[`Net.Agora.Android`](https://github.com/sbokatuk/Net.Agora.Android)** — the raw Android
-  bindings (Video, Voice, Signaling and Chat).
+  bindings (Video, Voice, Signaling, Chat, Whiteboard and — on Android only — IoT).
 - **[`Net.Agora.iOS`](https://github.com/sbokatuk/Net.Agora.iOS)** — the raw iOS bindings (Video,
-  Voice, Signaling and Chat).
+  Voice, Signaling, Chat and Whiteboard).
 - **`Net.Agora`** (this repository) — the façades (`Net.Agora.Video`, `Net.Agora.Video.Maui`,
   `Net.Agora.Voice`, `Net.Agora.Voice.Maui`, `Net.Agora.Signaling`, `Net.Agora.Chat`,
-  `Net.Agora.Chat.Maui`) only. It binds no native code itself.
+  `Net.Agora.Chat.Maui`, `Net.Agora.Whiteboard`, `Net.Agora.Whiteboard.Maui`) only. It binds no native code itself.
 
 **This repository binds nothing.** No `ApiDefinition.cs`, no `.aar`, no
 `AndroidLibrary`/`NativeReference` — each façade depends on its platform packages the same way any
@@ -42,13 +42,15 @@ src/
                                  nothing platform-specific to hide
   Net.Agora.Chat/               the cross-platform Chat (IM) client
   Net.Agora.Chat.Maui/          the MAUI platform glue (no view — chat renders nothing)
+  Net.Agora.Whiteboard/         the cross-platform Interactive Whiteboard client
+  Net.Agora.Whiteboard.Maui/    the MAUI board view + its handlers
 tests/
   Net.Agora.PackageTests/       asserts this repository's own packages' shape and pinned dependencies
   Net.Agora.UnitTests/          the platform-neutral façade logic — options validation, the
                                  event-arg types, for every product — no device, no packages, no workload
   Net.Agora.DeviceTests/        on-device smoke checks against a packed façade package — one
                                  project, an Android and an iOS head, same checks on both; the
-                                 product is selected with -p:AgoraDeviceProduct=Video|Voice|Signaling|Chat
+                                 product is selected with -p:AgoraDeviceProduct=Video|Voice|Signaling|Chat|Whiteboard
 samples/
   Net.Agora.Sample/             the MAUI sample app (Video)
   Net.Agora.Sample.Voice/       the MAUI sample app (Voice)
@@ -92,11 +94,12 @@ source):
 ./build/BuildNugets.sh voice                          # same, for the Voice packages
 ./build/BuildNugets.sh signaling                      # same, for Net.Agora.Signaling
 ./build/BuildNugets.sh chat                          # same, for the Chat packages
+./build/BuildNugets.sh whiteboard                    # same, for the Whiteboard packages
 ./build/BuildNugets.sh video --suffix beta.12.34      # prerelease: the product's version plus a suffix
 ```
 
 There is no way to pass a whole version: the products sit on independent native version lines
-(RTC 4.6.x, RTM 2.2.x, Chat 1.4.x), so each packs at its own pin and releases publish whatever the pins say —
+(RTC 4.6.x, RTM 2.2.x, Chat 1.4.x, Whiteboard 2.16.x), so each packs at its own pin and releases publish whatever the pins say —
 see the release workflow.
 
 Output lands in `./artifacts`, which `NuGet.config` exposes as a package source so the tests and

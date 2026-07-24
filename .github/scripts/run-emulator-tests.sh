@@ -10,7 +10,8 @@ set -euo pipefail
 #
 # Usage: run-emulator-tests.sh VERSION [TARGET_FRAMEWORK] [PRODUCT]
 #
-# PRODUCT is Video (default), Voice, Signaling or Chat — which façade package the suite consumes. One run
+# PRODUCT is Video (default), Voice, Signaling, Chat or Whiteboard — which façade package the suite
+# consumes. One run
 # exercises one product: their platform packages carry the same native artifacts, so a single
 # app holds one of them.
 
@@ -69,6 +70,7 @@ rm -rf "${HOME}/.nuget/packages/net.agora.video.android/${NET_AGORA_VIDEO_ANDROI
 rm -rf "${HOME}/.nuget/packages/net.agora.voice.android/${NET_AGORA_VOICE_ANDROID_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.signaling.android/${NET_AGORA_SIGNALING_ANDROID_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.chat.android/${NET_AGORA_CHAT_ANDROID_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.whiteboard.android/${NET_AGORA_WHITEBOARD_ANDROID_VERSION}"
 
 rm -rf "${REPO_ROOT}/tests/Net.Agora.DeviceTests/obj" \
        "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin"

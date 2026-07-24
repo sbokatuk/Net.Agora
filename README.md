@@ -20,6 +20,8 @@ dotnet add package Net.Agora.Voice        # voice-only, everything else
 dotnet add package Net.Agora.Signaling    # realtime messaging (RTM) — MAUI or plain, same package
 dotnet add package Net.Agora.Chat.Maui    # MAUI chat (IM) apps
 dotnet add package Net.Agora.Chat         # chat (IM), everything else
+dotnet add package Net.Agora.Whiteboard.Maui   # MAUI whiteboard apps: adds the board view
+dotnet add package Net.Agora.Whiteboard        # whiteboard, everything else
 ```
 
 ```csharp
@@ -85,13 +87,30 @@ foreach (var conversation in chat.GetConversations())   // local, most recent fi
 }
 ```
 
+The Interactive Whiteboard is the fifth. It is a shared drawing surface rather than a stream, and
+on both platforms the board is a web view — so, like the video client, it comes with a MAUI view:
+
+```csharp
+// <agora:AgoraWhiteboardView x:Name="Board" /> in your XAML
+var board = Board.CreateClient(new AgoraWhiteboardOptions
+{
+    AppIdentifier = "your-whiteboard-app-identifier",   // not an RTC App ID
+    RoomUuid = uuid,                                    // both from your own server's call
+    RoomToken = token,                                  // to the whiteboard REST API
+    Uid = "alice",
+});
+
+await board.JoinAsync();
+board.SetTool(AgoraWhiteboardTool.Pencil, color: 0xE81123, strokeWidth: 4);
+```
+
 Pick one RTC product per app: Video already carries the full audio surface, and the two RTC
 products' native artifacts collide (same Java classes on Android, same `AgoraRtcKit` framework on
-iOS). Signaling and Chat coexist with either, and with each other.
+iOS). Signaling, Chat and Whiteboard coexist with either, and with each other.
 
 ## Status
 
-This repository covers Agora's Video, Voice, Signaling and Chat SDKs, wired end to end: the raw Android/iOS
+This repository covers Agora's Video, Voice, Signaling, Chat and Interactive Whiteboard SDKs, wired end to end: the raw Android/iOS
 bindings (in the two sibling repositories above), the cross-platform clients, the MAUI packages,
 package tests, sample apps, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact state.
 
@@ -101,6 +120,7 @@ package tests, sample apps, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact
 | Voice | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ glue (no view — voice renders nothing) |
 | Signaling | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | n/a — no glue needed, same package everywhere |
 | Chat | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ glue (no view — chat renders nothing) |
+| Whiteboard | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ board view + glue |
 
 ## How this repository works
 

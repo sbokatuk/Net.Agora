@@ -7,7 +7,8 @@ set -euo pipefail
 #
 # Usage: run-simulator-tests.sh VERSION [TARGET_FRAMEWORK] [PRODUCT]
 #
-# PRODUCT is Video (default), Voice, Signaling or Chat — which façade package the suite consumes. One run
+# PRODUCT is Video (default), Voice, Signaling, Chat or Whiteboard — which façade package the suite
+# consumes. One run
 # exercises one product: their platform packages carry the same native artifacts, so a single
 # app holds one of them.
 
@@ -57,6 +58,7 @@ rm -rf "${HOME}/.nuget/packages/net.agora.video.ios/${NET_AGORA_VIDEO_IOS_VERSIO
 rm -rf "${HOME}/.nuget/packages/net.agora.voice.ios/${NET_AGORA_VOICE_IOS_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.signaling.ios/${NET_AGORA_SIGNALING_IOS_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.chat.ios/${NET_AGORA_CHAT_IOS_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.whiteboard.ios/${NET_AGORA_WHITEBOARD_IOS_VERSION}"
 
 # The app's own intermediate output has to go too, not just the NuGet cache. The iOS package's
 # native payload is extracted out of the package into obj/ and copied into the .app, and neither

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!--
-      Which façade to exercise (Video, Voice, Signaling or Chat) and which of its target frameworks. Both go
+      Which façade to exercise (Video, Voice, Signaling, Chat or Whiteboard) and which of its target frameworks. Both go
       through properties of our own: overriding TargetFramework directly on the command line
       breaks restore, and the two façades cannot be referenced together — their platform packages
       carry the same native artifacts, so one app holds one of them.
@@ -14,6 +14,7 @@
     <AgoraDeviceProduct Condition=" '$(AgoraDeviceProduct)' == '' ">Video</AgoraDeviceProduct>
     <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Signaling' ">$(DefineConstants);AGORA_SIGNALING</DefineConstants>
     <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Chat' ">$(DefineConstants);AGORA_CHAT</DefineConstants>
+    <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Whiteboard' ">$(DefineConstants);AGORA_WHITEBOARD</DefineConstants>
     <AgoraDeviceTargetFramework Condition=" '$(AgoraDeviceTargetFramework)' == '' ">net9.0-ios18.0</AgoraDeviceTargetFramework>
     <TargetFramework>$(AgoraDeviceTargetFramework)</TargetFramework>
     <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Voice' ">$(DefineConstants);AGORA_VOICE</DefineConstants>
@@ -104,6 +105,7 @@
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Voice' ">$(AgoraVoiceIosVersion).$(AgoraBindingRevision)</AgoraPackageVersion>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Signaling' ">$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)</AgoraPackageVersion>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Chat' ">$(AgoraChatIosVersion).$(AgoraChatBindingRevision)</AgoraPackageVersion>
+    <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Whiteboard' ">$(AgoraWhiteboardIosVersion).$(AgoraWhiteboardBindingRevision)</AgoraPackageVersion>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' ">$(VersionPrefix)</AgoraPackageVersion>
 
     <!--
