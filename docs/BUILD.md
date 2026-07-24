@@ -56,6 +56,7 @@ samples/
   Net.Agora.Sample.Voice/       the MAUI sample app (Voice)
   Net.Agora.Sample.Signaling/   the MAUI sample app (Signaling — a tiny chat room)
   Net.Agora.Sample.Chat/        the MAUI sample app (Chat — one-to-one messaging)
+  Net.Agora.Sample.Whiteboard/  the MAUI sample app (Interactive Whiteboard — draw together)
 assets/                         the package icon
 Net.Agora.sln                   every project above except the sample, which consumes packed
                                  packages from ./artifacts and would break a plain restore

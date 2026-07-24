@@ -166,6 +166,12 @@ jobs:
               -c Debug -f "$@" \
               -p:AgoraChatPackageVersion="${AGORA_CHAT_PACKAGE_VERSION}${s}"
             echo "::endgroup::"
+
+            echo "::group::whiteboard sample $1"
+            dotnet build samples/Net.Agora.Sample.Whiteboard \
+              -c Debug -f "$@" \
+              -p:AgoraWhiteboardPackageVersion="${AGORA_WHITEBOARD_PACKAGE_VERSION}${s}"
+            echo "::endgroup::"
           done
 
   validate:
