@@ -15,10 +15,10 @@
     been observed lagging Maven Central by a point version.
   -->
   <PropertyGroup>
-    <NetAgoraVideoAndroidVersion>4.6.3.1</NetAgoraVideoAndroidVersion>
-    <NetAgoraVideoIosVersion>4.6.2.1</NetAgoraVideoIosVersion>
-    <NetAgoraVoiceAndroidVersion>4.6.3.1</NetAgoraVoiceAndroidVersion>
-    <NetAgoraVoiceIosVersion>4.6.2.1</NetAgoraVoiceIosVersion>
+    <NetAgoraVideoAndroidVersion>4.6.3.2</NetAgoraVideoAndroidVersion>
+    <NetAgoraVideoIosVersion>4.6.2.2</NetAgoraVideoIosVersion>
+    <NetAgoraVoiceAndroidVersion>4.6.3.2</NetAgoraVoiceAndroidVersion>
+    <NetAgoraVoiceIosVersion>4.6.2.2</NetAgoraVoiceIosVersion>
 
     <!--
       Each product's own version tracks its iOS platform package's native version component — the
@@ -29,7 +29,7 @@
     -->
     <AgoraVideoIosVersion>4.6.2</AgoraVideoIosVersion>
     <AgoraVoiceIosVersion>4.6.2</AgoraVoiceIosVersion>
-    <AgoraBindingRevision>1</AgoraBindingRevision>
+    <AgoraBindingRevision>2</AgoraBindingRevision>
     <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
   </PropertyGroup>
 

@@ -76,9 +76,28 @@ public partial class MainPage : ContentPage
                     _remoteUid = null;
                 }
             };
+            client.RemoteAudioMuted += (_, ev) => Append($"user {ev.Uid} {(ev.Muted ? "muted" : "unmuted")} their mic");
+            client.RemoteVideoMuted += (_, ev) => Append($"user {ev.Uid} {(ev.Muted ? "paused" : "resumed")} their camera");
+            client.ConnectionStateChanged += (_, ev) => Append($"connection: {ev.State} (reason {ev.Reason})");
+            client.TokenPrivilegeWillExpire += (_, _) =>
+                Append("token expires soon — fetch a fresh one and call RenewToken");
+            client.VolumeIndication += (_, ev) => MainThread.BeginInvokeOnMainThread(() =>
+            {
+                var speaking = ev.Speakers
+                    .Where(s => s.Volume > 0)
+                    .Select(s => s.Uid == 0 ? $"you ({s.Volume})" : $"{s.Uid} ({s.Volume})")
+                    .ToList();
+                SpeakersLabel.Text = speaking.Count > 0
+                    ? $"speaking: {string.Join(", ", speaking)}"
+                    : "nobody is speaking";
+            });
             client.Error += (_, ev) => Append($"error {ev.ErrorCode}: {ev.Message}");
 
             client.EnableVideo();
+            client.SetSpeakerphone(SpeakerSwitch.IsToggled);
+
+            // Who-is-speaking reports every 200 ms — drives the label under the controls.
+            client.EnableVolumeIndication(TimeSpan.FromMilliseconds(200));
 
             // Completes when the server confirms, so there is no callback to wire up for the
             // common case, and a failure to join surfaces as an exception right here.
@@ -104,6 +123,27 @@ public partial class MainPage : ContentPage
         SetJoined(false);
     }
 
+    private void OnSwitchCameraClicked(object sender, EventArgs e) => _client?.SwitchCamera();
+
+    private void OnMuteToggled(object sender, ToggledEventArgs e)
+    {
+        _client?.MuteLocalAudio(e.Value);
+        Append(e.Value ? "microphone muted" : "microphone unmuted");
+    }
+
+    private void OnCameraOffToggled(object sender, ToggledEventArgs e)
+    {
+        _client?.MuteLocalVideo(e.Value);
+        Append(e.Value ? "camera paused" : "camera resumed");
+    }
+
+    private void OnSpeakerToggled(object sender, ToggledEventArgs e)
+    {
+        // Before a join this sets the default route; during a call it switches the live route.
+        _client?.SetSpeakerphone(e.Value);
+        Append(e.Value ? "audio routed to speaker" : "audio routed to earpiece");
+    }
+
     private static async Task<bool> RequestCapturePermissionsAsync()
     {
         var camera = await Permissions.RequestAsync<Permissions.Camera>();
@@ -118,6 +158,15 @@ public partial class MainPage : ContentPage
     {
         JoinButton.IsEnabled = !joined;
         LeaveButton.IsEnabled = joined;
+        SwitchCameraButton.IsEnabled = joined;
+        MuteSwitch.IsEnabled = joined;
+        CameraOffSwitch.IsEnabled = joined;
+        if (!joined)
+        {
+            MuteSwitch.IsToggled = false;
+            CameraOffSwitch.IsToggled = false;
+            SpeakersLabel.Text = "nobody is speaking";
+        }
     }
 
     private void Append(string message) => MainThread.BeginInvokeOnMainThread(() =>

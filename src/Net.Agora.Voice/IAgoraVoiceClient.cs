@@ -39,6 +39,13 @@ public interface IAgoraVoiceClient : IDisposable
     event EventHandler<AgoraVolumeIndicationEventArgs>? VolumeIndication;
 
     /// <summary>
+    /// The connection's lifecycle: connecting, connected, reconnecting after a drop, failed. The
+    /// SDK reconnects on its own — <see cref="AgoraConnectionState.Reconnecting"/> is informational,
+    /// <see cref="AgoraConnectionState.Failed"/> is when a fresh <see cref="JoinAsync"/> is needed.
+    /// </summary>
+    event EventHandler<AgoraConnectionStateEventArgs>? ConnectionStateChanged;
+
+    /// <summary>
     /// The channel token is about to expire — obtain a fresh one from your token server and pass
     /// it to <see cref="RenewToken"/>, or the client will be disconnected when it lapses.
     /// </summary>

@@ -109,6 +109,10 @@ public sealed partial class AgoraVoiceClient
             owner.RaiseVolumeIndication(mapped, (int)totalVolume);
         }
 
+        public override void ConnectionChangedToState(
+            AgoraRtcEngineKit engine, Net.Agora.Voice.iOS.AgoraConnectionState state, nint reason) =>
+            owner.RaiseConnectionStateChanged((AgoraConnectionState)(long)state, (int)reason);
+
         public override void TokenPrivilegeWillExpire(AgoraRtcEngineKit engine, string token) =>
             owner.RaiseTokenPrivilegeWillExpire();
 

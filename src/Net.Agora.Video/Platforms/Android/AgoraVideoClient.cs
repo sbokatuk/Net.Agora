@@ -39,6 +39,13 @@ public sealed partial class AgoraVideoClient
         };
         _engine = RtcEngine.Create(config)
             ?? throw new AgoraVideoException("RtcEngine.Create returned null.", errorCode: 0);
+
+        // The role only exists in live-broadcasting, where the engine's default is Audience — a
+        // Broadcaster who skipped this would join silently unable to publish.
+        if (options.ChannelProfile == AgoraChannelProfile.LiveBroadcasting)
+        {
+            _engine.SetClientRole((int)options.ClientRole);
+        }
     }
 
     /// <summary>Renders this device's own camera feed into <paramref name="view"/>.</summary>
@@ -60,6 +67,41 @@ public sealed partial class AgoraVideoClient
 
     /// <inheritdoc cref="IAgoraVideoClient.MuteLocalVideo" />
     public void MuteLocalVideo(bool mute) => _engine.MuteLocalVideoStream(mute);
+
+    /// <inheritdoc cref="IAgoraVideoClient.StartPreview" />
+    public void StartPreview() => _engine.StartPreview();
+
+    /// <inheritdoc cref="IAgoraVideoClient.StopPreview" />
+    public void StopPreview() => _engine.StopPreview();
+
+    /// <inheritdoc cref="IAgoraVideoClient.SwitchCamera" />
+    public void SwitchCamera() => _engine.SwitchCamera();
+
+    /// <inheritdoc cref="IAgoraVideoClient.SetSpeakerphone" />
+    public void SetSpeakerphone(bool speakerphone)
+    {
+        // Two native calls behind one switch: the live override only works once the audio session
+        // exists (in a channel), the default-route call is what applies before one does. The
+        // Java method's casing ("Routeto") is Agora's own wart, faithfully preserved.
+        if (IsJoined)
+        {
+            _engine.SetEnableSpeakerphone(speakerphone);
+        }
+        else
+        {
+            _engine.SetDefaultAudioRoutetoSpeakerphone(speakerphone);
+        }
+    }
+
+    /// <inheritdoc cref="IAgoraVideoClient.RenewToken" />
+    public void RenewToken(string token)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        _engine.RenewToken(token);
+    }
+
+    private void EnableVolumeIndicationCore(int intervalMilliseconds) =>
+        _engine.EnableAudioVolumeIndication(intervalMilliseconds, smooth: 3, reportVad: false);
 
     private void JoinCore(string channelId) =>
         _engine.JoinChannel(_options.Token, channelId, null, (int)_options.Uid);
@@ -88,6 +130,27 @@ public sealed partial class AgoraVideoClient
 
         public override void OnUserOffline(int uid, int reason) =>
             owner.RaiseUserOffline((uint)uid);
+
+        public override void OnUserMuteAudio(int uid, bool muted) =>
+            owner.RaiseRemoteAudioMuted((uint)uid, muted);
+
+        public override void OnUserMuteVideo(int uid, bool muted) =>
+            owner.RaiseRemoteVideoMuted((uint)uid, muted);
+
+        public override void OnAudioVolumeIndication(
+            IRtcEngineEventHandler.AudioVolumeInfo[] speakers, int totalVolume)
+        {
+            var mapped = speakers is { Length: > 0 }
+                ? Array.ConvertAll(speakers, s => new AgoraSpeakerVolume((uint)s.Uid, s.Volume))
+                : [];
+            owner.RaiseVolumeIndication(mapped, totalVolume);
+        }
+
+        public override void OnConnectionStateChanged(int state, int reason) =>
+            owner.RaiseConnectionStateChanged((AgoraConnectionState)state, reason);
+
+        public override void OnTokenPrivilegeWillExpire(string token) =>
+            owner.RaiseTokenPrivilegeWillExpire();
 
         public override void OnError(int err) =>
             owner.RaiseError(RtcEngine.GetErrorDescription(err) ?? $"Agora error {err}", err);

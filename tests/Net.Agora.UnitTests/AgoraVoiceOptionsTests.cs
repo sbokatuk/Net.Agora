@@ -70,3 +70,40 @@ public class AgoraVoiceExceptionTests
         Assert.Equal(101, exception.ErrorCode);
     }
 }
+
+/// <summary>
+/// Pins the constructor-parameter order of the event args the platform halves construct from
+/// positional native callback values — a swapped pair compiles and passes every other test.
+/// </summary>
+public class AgoraVoiceEventArgsTests
+{
+    [Fact]
+    public void Connection_state_args_carry_state_and_reason()
+    {
+        var args = new AgoraConnectionStateEventArgs(AgoraConnectionState.Failed, reason: 9);
+
+        Assert.Equal(AgoraConnectionState.Failed, args.State);
+        Assert.Equal(9, args.Reason);
+    }
+
+    [Fact]
+    public void Remote_mute_args_carry_uid_and_muted()
+    {
+        var args = new AgoraRemoteAudioMuteEventArgs(uid: 5, muted: true);
+
+        Assert.Equal(5u, args.Uid);
+        Assert.True(args.Muted);
+    }
+
+    [Fact]
+    public void Volume_indication_args_carry_speakers_and_total()
+    {
+        var args = new AgoraVolumeIndicationEventArgs(
+            [new AgoraSpeakerVolume(Uid: 4, Volume: 128)], totalVolume: 130);
+
+        var speaker = Assert.Single(args.Speakers);
+        Assert.Equal(4u, speaker.Uid);
+        Assert.Equal(128, speaker.Volume);
+        Assert.Equal(130, args.TotalVolume);
+    }
+}

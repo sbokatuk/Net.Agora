@@ -50,6 +50,38 @@ public sealed class AgoraVolumeIndicationEventArgs(
     public int TotalVolume { get; } = totalVolume;
 }
 
+/// <summary>The connection's lifecycle state — Agora's <c>AgoraConnectionState</c> / <c>CONNECTION_STATE_*</c>.</summary>
+public enum AgoraConnectionState
+{
+    /// <summary>No channel and not trying to reach one.</summary>
+    Disconnected = 1,
+
+    /// <summary>A join is in flight.</summary>
+    Connecting = 2,
+
+    /// <summary>In the channel.</summary>
+    Connected = 3,
+
+    /// <summary>The SDK lost the channel and is re-establishing it on its own.</summary>
+    Reconnecting = 4,
+
+    /// <summary>The SDK gave up; a fresh <c>JoinAsync</c> is required.</summary>
+    Failed = 5,
+}
+
+/// <summary>Raised for <see cref="IAgoraVoiceClient.ConnectionStateChanged"/>.</summary>
+public sealed class AgoraConnectionStateEventArgs(AgoraConnectionState state, int reason) : EventArgs
+{
+    /// <summary>The state the connection moved to.</summary>
+    public AgoraConnectionState State { get; } = state;
+
+    /// <summary>
+    /// Why — the SDK's own <c>CONNECTION_CHANGED_*</c> / <c>AgoraConnectionChangedReason</c> code,
+    /// carried raw: there are ~30 values and they matter mostly for logs.
+    /// </summary>
+    public int Reason { get; } = reason;
+}
+
 /// <summary>Raised for <see cref="IAgoraVoiceClient.Error"/>.</summary>
 public sealed class AgoraVoiceErrorEventArgs(string message, int errorCode) : EventArgs
 {

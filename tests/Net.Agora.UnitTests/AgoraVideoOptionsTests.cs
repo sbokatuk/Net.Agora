@@ -76,3 +76,43 @@ public class AgoraVideoExceptionTests
         Assert.Equal(101, exception.ErrorCode);
     }
 }
+
+/// <summary>
+/// Pins the constructor-parameter order of the event args the platform halves construct from
+/// positional native callback values — a swapped pair compiles and passes every other test.
+/// </summary>
+public class AgoraVideoEventArgsTests
+{
+    [Fact]
+    public void Connection_state_args_carry_state_and_reason()
+    {
+        var args = new AgoraConnectionStateEventArgs(AgoraConnectionState.Reconnecting, reason: 3);
+
+        Assert.Equal(AgoraConnectionState.Reconnecting, args.State);
+        Assert.Equal(3, args.Reason);
+    }
+
+    [Fact]
+    public void Remote_mute_args_carry_uid_and_muted()
+    {
+        var audio = new AgoraRemoteAudioMuteEventArgs(uid: 7, muted: true);
+        var video = new AgoraRemoteVideoMuteEventArgs(uid: 9, muted: false);
+
+        Assert.Equal(7u, audio.Uid);
+        Assert.True(audio.Muted);
+        Assert.Equal(9u, video.Uid);
+        Assert.False(video.Muted);
+    }
+
+    [Fact]
+    public void Volume_indication_args_carry_speakers_and_total()
+    {
+        var args = new AgoraVolumeIndicationEventArgs(
+            [new AgoraSpeakerVolume(Uid: 0, Volume: 200)], totalVolume: 210);
+
+        var speaker = Assert.Single(args.Speakers);
+        Assert.Equal(0u, speaker.Uid);
+        Assert.Equal(200, speaker.Volume);
+        Assert.Equal(210, args.TotalVolume);
+    }
+}

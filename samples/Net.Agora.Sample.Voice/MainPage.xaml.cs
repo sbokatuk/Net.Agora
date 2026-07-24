@@ -68,6 +68,7 @@ public partial class MainPage : ContentPage
                     ? $"speaking: {string.Join(", ", speaking)}"
                     : "nobody is speaking";
             });
+            client.ConnectionStateChanged += (_, ev) => Append($"connection: {ev.State} (reason {ev.Reason})");
             client.TokenPrivilegeWillExpire += (_, _) =>
                 Append("token expires soon — fetch a fresh one and call RenewToken");
             client.Error += (_, ev) => Append($"error {ev.ErrorCode}: {ev.Message}");

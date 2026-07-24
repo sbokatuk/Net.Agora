@@ -37,6 +37,9 @@ public sealed partial class AgoraVoiceClient : IAgoraVoiceClient
     public event EventHandler<AgoraVolumeIndicationEventArgs>? VolumeIndication;
 
     /// <inheritdoc />
+    public event EventHandler<AgoraConnectionStateEventArgs>? ConnectionStateChanged;
+
+    /// <inheritdoc />
     public event EventHandler? TokenPrivilegeWillExpire;
 
     /// <inheritdoc />
@@ -163,6 +166,9 @@ public sealed partial class AgoraVoiceClient : IAgoraVoiceClient
 
     private void RaiseVolumeIndication(IReadOnlyList<AgoraSpeakerVolume> speakers, int totalVolume) =>
         VolumeIndication?.Invoke(this, new AgoraVolumeIndicationEventArgs(speakers, totalVolume));
+
+    private void RaiseConnectionStateChanged(AgoraConnectionState state, int reason) =>
+        ConnectionStateChanged?.Invoke(this, new AgoraConnectionStateEventArgs(state, reason));
 
     private void RaiseTokenPrivilegeWillExpire() => TokenPrivilegeWillExpire?.Invoke(this, EventArgs.Empty);
 

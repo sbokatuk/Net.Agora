@@ -120,6 +120,9 @@ public sealed partial class AgoraVoiceClient
             owner.RaiseVolumeIndication(mapped, totalVolume);
         }
 
+        public override void OnConnectionStateChanged(int state, int reason) =>
+            owner.RaiseConnectionStateChanged((AgoraConnectionState)state, reason);
+
         public override void OnTokenPrivilegeWillExpire(string token) =>
             owner.RaiseTokenPrivilegeWillExpire();
 

@@ -28,9 +28,10 @@ client.UserJoined += (_, e) => client.SetRemoteView(e.Uid, RemoteView);
 await client.JoinAsync("my-channel");    // completes when the server confirms
 ```
 
-Voice-only apps get the same shape plus the voice essentials — speakerphone routing,
-who-is-speaking reports, remote mute state, token renewal — over native artifacts that carry no
-video codecs at all:
+Both clients carry the call essentials — speakerphone routing, who-is-speaking reports, remote
+mute state, connection lifecycle events, token renewal — and the video client adds the camera
+half (preview, flip, remote video mute). Voice-only apps get all of it over native artifacts that
+carry no video codecs at all:
 
 ```csharp
 var client = new AgoraVoiceOptions { AppId = "your-app-id", DefaultToSpeakerphone = true }.CreateClient();

@@ -90,12 +90,13 @@ public static class SmokeTests
     public static SmokeTest[] All =>
     [
         new("a missing App ID is rejected before any native call", MissingAppIdIsRejected),
-        new("constructs the client", ConstructsTheClient),
+        new("constructs a live-broadcasting broadcaster client", ConstructsTheClient),
 #if AGORA_VOICE
         new("drives mute, speakerphone and volume indication without throwing", EnablesAndDisablesMedia),
 #else
-        new("enables and disables video and audio without throwing", EnablesAndDisablesMedia),
+        new("drives the media, speakerphone and volume controls without throwing", EnablesAndDisablesMedia),
 #endif
+        new("an empty renew token is rejected, a shaped one is accepted", RenewsAToken),
         new("rejects a second join while one is pending", SecondJoinWhilePendingIsRejected),
         new("cancelling the token surfaces as OperationCanceledException", CancellationIsDistinctFromTimeout),
         new("an unregistered App ID fails the join within the configured timeout", JoinFailsWithinTimeout),
@@ -132,10 +133,17 @@ public static class SmokeTests
 
     private static void ConstructsTheClient()
     {
+        // Live-broadcasting with an explicit Broadcaster role, deliberately: that is the one
+        // combination where the constructor must call the engine's SetClientRole (the engine's
+        // own default in this profile is Audience), so constructing this way is what proves the
+        // role actually reaches the native side — the exact wiring that was once silently missing
+        // from the Video façade.
         _client = CreateClient(new AgoraClientOptions
         {
             AppId = AppId,
             Timeout = JoinTimeout,
+            ChannelProfile = AgoraChannelProfile.LiveBroadcasting,
+            ClientRole = AgoraClientRole.Broadcaster,
         });
 
         Assert(!Client.IsJoined, "IsJoined is true before any join was attempted.");
@@ -167,7 +175,29 @@ public static class SmokeTests
         Client.MuteLocalAudio(false);
         Client.MuteLocalVideo(true);
         Client.MuteLocalVideo(false);
+        Client.SetSpeakerphone(true);
+        Client.SetSpeakerphone(false);
+        Client.EnableVolumeIndication(TimeSpan.FromMilliseconds(200));
+
+        // The façade's own guard, distinct from the SDK's error code for the same input — see
+        // IAgoraVideoClient.EnableVolumeIndication. SwitchCamera and StartPreview are deliberately
+        // not called: they are the first calls that touch the camera, which on a headless
+        // simulator raises a TCC permission prompt nobody is there to answer — the platform
+        // binding suites cover them.
+        Throws<ArgumentOutOfRangeException>(
+            () => Client.EnableVolumeIndication(TimeSpan.Zero),
+            "a zero volume-indication interval");
 #endif
+    }
+
+    private static void RenewsAToken()
+    {
+        // The empty case is the façade's own guard; the shaped case crosses into the engine,
+        // whose answer to a renewal outside a channel is its business — not throwing is the
+        // façade's contract.
+        Throws<ArgumentException>(() => Client.RenewToken(" "), "a whitespace renew token");
+
+        Client.RenewToken(AppId);
     }
 
     private static async Task SecondJoinWhilePendingIsRejected()
@@ -219,17 +249,43 @@ public static class SmokeTests
     private static async Task JoinFailsWithinTimeout()
     {
         // No cancellation token this time: whatever fails the join, it has to be either the SDK
-        // reporting an error (an unregistered App ID) or AgoraVideoClient's own timeout — the two
+        // reporting an error (an unregistered App ID) or the façade's own timeout — the two
         // reasons the façade's exception carries, as opposed to the OperationCanceledException the
         // previous check pinned to a caller-supplied token.
         var started = DateTimeOffset.UtcNow;
 
-        var error = await ThrowsAsync<AgoraClientException>(
-            () => Client.JoinAsync(ChannelId),
-            "a join with an unregistered App ID");
+        // A failing join is also the one moment this credential-less suite can see the connection
+        // lifecycle move (idle → connecting, and onward to failed), so the event wiring is
+        // asserted here rather than in a check of its own.
+        var states = new List<AgoraConnectionState>();
+        void OnState(object? sender, AgoraConnectionStateEventArgs e)
+        {
+            lock (states)
+            {
+                states.Add(e.State);
+            }
+            Report($"connection state: {e.State} (reason {e.Reason})");
+        }
 
-        Report($"failed after {(DateTimeOffset.UtcNow - started).TotalSeconds:0.0}s: " +
-            $"[{error.ErrorCode}] {error.Message}");
+        Client.ConnectionStateChanged += OnState;
+        try
+        {
+            var error = await ThrowsAsync<AgoraClientException>(
+                () => Client.JoinAsync(ChannelId),
+                "a join with an unregistered App ID");
+
+            Report($"failed after {(DateTimeOffset.UtcNow - started).TotalSeconds:0.0}s: " +
+                $"[{error.ErrorCode}] {error.Message}");
+        }
+        finally
+        {
+            Client.ConnectionStateChanged -= OnState;
+        }
+
+        lock (states)
+        {
+            Assert(states.Count > 0, "no ConnectionStateChanged event was raised during a failing join.");
+        }
 
         Assert(!Client.IsJoined, "IsJoined is true after a join that should have failed.");
     }
