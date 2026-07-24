@@ -119,4 +119,19 @@ public sealed partial class AgoraVoiceClient
         public override void DidOccurError(AgoraRtcEngineKit engine, Net.Agora.Voice.iOS.AgoraErrorCode errorCode) =>
             owner.RaiseError($"Agora error {errorCode}", (int)errorCode);
     }
+
+    // ------------------------------------------------------------------------------------------
+    // Extension controls — see the shared half for why the return codes are checked.
+    // ------------------------------------------------------------------------------------------
+
+    private int SetNoiseSuppressionCore(AgoraNoiseSuppression mode) =>
+        mode == AgoraNoiseSuppression.Off
+            ? (int)_engine.SetAinsMode(false, AgoraAinsMode.Balanced)
+            : (int)_engine.SetAinsMode(true, (AgoraAinsMode)(long)mode);
+
+    private int SetVoiceBeautifierCore(AgoraVoiceBeautifier preset) =>
+        (int)_engine.SetVoiceBeautifierPreset((Net.Agora.Voice.iOS.AgoraVoiceBeautifierPreset)(long)preset);
+
+    private int SetAudioEffectCore(AgoraAudioEffect preset) =>
+        (int)_engine.SetAudioEffectPreset((Net.Agora.Voice.iOS.AgoraAudioEffectPreset)(long)preset);
 }

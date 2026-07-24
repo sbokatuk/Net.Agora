@@ -129,4 +129,19 @@ public sealed partial class AgoraVoiceClient
         public override void OnError(int err) =>
             owner.RaiseError(RtcEngine.GetErrorDescription(err) ?? $"Agora error {err}", err);
     }
+
+    // ------------------------------------------------------------------------------------------
+    // Extension controls — see the shared half for why the return codes are checked.
+    // ------------------------------------------------------------------------------------------
+
+    private int SetNoiseSuppressionCore(AgoraNoiseSuppression mode) =>
+        mode == AgoraNoiseSuppression.Off
+            ? _engine.SetAINSMode(false, (int)AgoraNoiseSuppression.Balanced)
+            : _engine.SetAINSMode(true, (int)mode);
+
+    private int SetVoiceBeautifierCore(AgoraVoiceBeautifier preset) =>
+        _engine.SetVoiceBeautifierPreset((int)preset);
+
+    private int SetAudioEffectCore(AgoraAudioEffect preset) =>
+        _engine.SetAudioEffectPreset((int)preset);
 }

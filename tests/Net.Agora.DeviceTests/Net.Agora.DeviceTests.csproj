@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!--
-      Which façade to exercise (Video or Voice) and which of its target frameworks. Both go
+      Which façade to exercise (Video, Voice, Signaling or Chat) and which of its target frameworks. Both go
       through properties of our own: overriding TargetFramework directly on the command line
       breaks restore, and the two façades cannot be referenced together — their platform packages
       carry the same native artifacts, so one app holds one of them.
@@ -13,6 +13,7 @@
     -->
     <AgoraDeviceProduct Condition=" '$(AgoraDeviceProduct)' == '' ">Video</AgoraDeviceProduct>
     <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Signaling' ">$(DefineConstants);AGORA_SIGNALING</DefineConstants>
+    <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Chat' ">$(DefineConstants);AGORA_CHAT</DefineConstants>
     <AgoraDeviceTargetFramework Condition=" '$(AgoraDeviceTargetFramework)' == '' ">net9.0-ios18.0</AgoraDeviceTargetFramework>
     <TargetFramework>$(AgoraDeviceTargetFramework)</TargetFramework>
     <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Voice' ">$(DefineConstants);AGORA_VOICE</DefineConstants>
@@ -102,11 +103,61 @@
   <PropertyGroup>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Voice' ">$(AgoraVoiceIosVersion).$(AgoraBindingRevision)</AgoraPackageVersion>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Signaling' ">$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)</AgoraPackageVersion>
+    <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Chat' ">$(AgoraChatIosVersion).$(AgoraChatBindingRevision)</AgoraPackageVersion>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' ">$(VersionPrefix)</AgoraPackageVersion>
+
+    <!--
+      The extensions ride the RTC line and are published from the binding repositories, so they
+      carry the *platform* pins rather than this repository's facade version.
+    -->
+    <AgoraExtensionAndroidVersion Condition=" '$(AgoraExtensionAndroidVersion)' == '' ">$(NetAgoraVideoAndroidVersion)</AgoraExtensionAndroidVersion>
+    <AgoraExtensionIosVersion Condition=" '$(AgoraExtensionIosVersion)' == '' ">$(NetAgoraVideoIosVersion)</AgoraExtensionIosVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Net.Agora.$(AgoraDeviceProduct)" Version="$(AgoraPackageVersion)" />
+  </ItemGroup>
+
+  <!--
+    The extension packages the RTC heads exercise. They are platform packages, not facades — there
+    is no cross-platform package to reference — so each platform gets its own list, at the platform
+    binding's pinned version rather than the facade's.
+
+    They are here because they are the only way to prove the extension switches work: the call
+    compiles and links whether or not the native payload is present, and answers a failure code
+    when it is not. See the ExtensionsAreAvailable check in SmokeTests.cs.
+
+    Audio-only for the Voice head — the voice engine has no video pipeline for the rest to act on.
+  -->
+  <PropertyGroup>
+    <!--
+      Set false to build the same app *without* the extension payloads. That is how the
+      ExtensionsAreAvailable check was shown to be worth having: with the packages it passes, and
+      without them the engine refuses the switches, which is the whole point. Left as a knob rather
+      than a one-off experiment so the claim stays checkable.
+    -->
+    <AgoraReferenceExtensions Condition=" '$(AgoraReferenceExtensions)' == '' ">true</AgoraReferenceExtensions>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(AgoraReferenceExtensions)' == 'true' And ('$(AgoraDeviceProduct)' == 'Video' Or '$(AgoraDeviceProduct)' == 'Voice') ">
+    <AgoraExtension Include="Ains" />
+    <AgoraExtension Include="AudioBeauty" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(AgoraReferenceExtensions)' == 'true' And '$(AgoraDeviceProduct)' == 'Video' ">
+    <AgoraExtension Include="VirtualBackground" />
+    <AgoraExtension Include="ClearVision" />
+    <AgoraExtension Include="FaceDetection" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <PackageReference Include="@(AgoraExtension->'Net.Agora.Extensions.%(Identity).Android')"
+                      Version="$(AgoraExtensionAndroidVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <PackageReference Include="@(AgoraExtension->'Net.Agora.Extensions.%(Identity).iOS')"
+                      Version="$(AgoraExtensionIosVersion)" />
   </ItemGroup>
 
 </Project>

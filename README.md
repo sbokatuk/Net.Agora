@@ -18,6 +18,8 @@ dotnet add package Net.Agora.Video        # video, everything else
 dotnet add package Net.Agora.Voice.Maui   # MAUI voice-only apps
 dotnet add package Net.Agora.Voice        # voice-only, everything else
 dotnet add package Net.Agora.Signaling    # realtime messaging (RTM) — MAUI or plain, same package
+dotnet add package Net.Agora.Chat.Maui    # MAUI chat (IM) apps
+dotnet add package Net.Agora.Chat         # chat (IM), everything else
 ```
 
 ```csharp
@@ -61,13 +63,35 @@ await signaling.SubscribeAsync("lobby");
 await signaling.PublishAsync("lobby", "hi all");
 ```
 
+Chat is the fourth — a persistent IM service, where Signaling is ephemeral pub/sub. It signs in,
+sends and receives messages, and keeps a local conversation history:
+
+```csharp
+var chat = new AgoraChatOptions
+{
+    AppId = "your-app-id",
+    UserId = "alice",
+    Token = "chat-token-from-your-server",   // required — Chat has no App ID-only mode
+}.CreateClient();
+
+chat.MessageReceived += (_, e) => Show($"{e.Message.From}: {e.Message.Text}");
+
+await chat.LoginAsync();
+await chat.SendTextMessageAsync("bob", "hi");
+
+foreach (var conversation in chat.GetConversations())   // local, most recent first
+{
+    Show($"{conversation.ConversationId}: {conversation.UnreadCount} unread");
+}
+```
+
 Pick one RTC product per app: Video already carries the full audio surface, and the two RTC
 products' native artifacts collide (same Java classes on Android, same `AgoraRtcKit` framework on
-iOS). Signaling coexists with either.
+iOS). Signaling and Chat coexist with either, and with each other.
 
 ## Status
 
-This repository covers Agora's Video and Voice SDKs, wired end to end: the raw Android/iOS
+This repository covers Agora's Video, Voice, Signaling and Chat SDKs, wired end to end: the raw Android/iOS
 bindings (in the two sibling repositories above), the cross-platform clients, the MAUI packages,
 package tests, sample apps, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact state.
 
@@ -76,6 +100,7 @@ package tests, sample apps, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact
 | Video | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ view + glue |
 | Voice | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ glue (no view — voice renders nothing) |
 | Signaling | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | n/a — no glue needed, same package everywhere |
+| Chat | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ glue (no view — chat renders nothing) |
 
 ## How this repository works
 

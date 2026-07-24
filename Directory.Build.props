@@ -16,11 +16,13 @@
   -->
   <PropertyGroup>
     <NetAgoraVideoAndroidVersion>4.6.3.3</NetAgoraVideoAndroidVersion>
-    <NetAgoraVideoIosVersion>4.6.2.3</NetAgoraVideoIosVersion>
+    <NetAgoraVideoIosVersion>4.6.2.4</NetAgoraVideoIosVersion>
     <NetAgoraVoiceAndroidVersion>4.6.3.3</NetAgoraVoiceAndroidVersion>
-    <NetAgoraVoiceIosVersion>4.6.2.3</NetAgoraVoiceIosVersion>
+    <NetAgoraVoiceIosVersion>4.6.2.4</NetAgoraVoiceIosVersion>
     <NetAgoraSignalingAndroidVersion>2.2.6.1</NetAgoraSignalingAndroidVersion>
     <NetAgoraSignalingIosVersion>2.2.6.1</NetAgoraSignalingIosVersion>
+    <NetAgoraChatAndroidVersion>1.4.0.1</NetAgoraChatAndroidVersion>
+    <NetAgoraChatIosVersion>1.4.0.1</NetAgoraChatIosVersion>
 
     <!--
       Each product's own version tracks its iOS platform package's native version component — the
@@ -31,13 +33,19 @@
     -->
     <AgoraVideoIosVersion>4.6.2</AgoraVideoIosVersion>
     <AgoraVoiceIosVersion>4.6.2</AgoraVoiceIosVersion>
-    <AgoraBindingRevision>3</AgoraBindingRevision>
+    <AgoraBindingRevision>4</AgoraBindingRevision>
     <!--
       Signaling is a different product with its own native version line (2.2.x) and its own
       revision counter — it did not exist when the RTC products shipped revision 1.
     -->
     <AgoraSignalingIosVersion>2.2.6</AgoraSignalingIosVersion>
     <AgoraSignalingBindingRevision>1</AgoraSignalingBindingRevision>
+    <!--
+      Chat is a third product on a third native line — 1.4.x — with its own revision counter, for
+      the same reason Signaling has one.
+    -->
+    <AgoraChatIosVersion>1.4.0</AgoraChatIosVersion>
+    <AgoraChatBindingRevision>1</AgoraChatBindingRevision>
     <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
   </PropertyGroup>
 

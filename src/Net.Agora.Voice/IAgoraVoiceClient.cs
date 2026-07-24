@@ -92,4 +92,43 @@ public interface IAgoraVoiceClient : IDisposable
 
     /// <summary>Replaces the channel token — see <see cref="TokenPrivilegeWillExpire"/>.</summary>
     void RenewToken(string token);
+
+    // ------------------------------------------------------------------------------------------
+    // Extension controls
+    //
+    // Each is a switch on the engine that needs a native payload this package does not carry —
+    // Agora ships the optional features as separate artifacts, each with its own
+    // Net.Agora.Extensions.* package pair. The switch is always callable; it is the effect that is
+    // missing without the package, and the SDKs report that as an ordinary failure code, which
+    // these methods raise as an exception rather than swallow.
+    //
+    // Only the audio extensions appear here: this is the voice build of the engine, with no video
+    // pipeline for the virtual background or the image-quality filters to act on. Those are on
+    // IAgoraVideoClient.
+    // ------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Turns the AI noise suppressor on at the given aggressiveness, or off.
+    /// Needs <c>Net.Agora.Extensions.Ains.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <exception cref="AgoraVoiceException">
+    /// The SDK refused — most often because the extension package is not referenced.
+    /// </exception>
+    void SetNoiseSuppression(AgoraNoiseSuppression mode);
+
+    /// <summary>
+    /// Applies a voice-timbre preset, or <see cref="AgoraVoiceBeautifier.Off"/> to clear it.
+    /// Needs <c>Net.Agora.Extensions.AudioBeauty.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <remarks>Overwrites any <see cref="SetAudioEffect"/> preset, and is overwritten by one.</remarks>
+    /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    void SetVoiceBeautifier(AgoraVoiceBeautifier preset);
+
+    /// <summary>
+    /// Applies a room-acoustics or voice-changer preset, or <see cref="AgoraAudioEffect.Off"/> to
+    /// clear it. Needs <c>Net.Agora.Extensions.AudioBeauty.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <remarks>Overwrites any <see cref="SetVoiceBeautifier"/> preset, and is overwritten by one.</remarks>
+    /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    void SetAudioEffect(AgoraAudioEffect preset);
 }

@@ -147,4 +147,51 @@ public sealed partial class AgoraVideoClient
         public override void DidOccurError(AgoraRtcEngineKit engine, Net.Agora.Video.iOS.AgoraErrorCode errorCode) =>
             owner.RaiseError($"Agora error {errorCode}", (int)errorCode);
     }
+
+    // ------------------------------------------------------------------------------------------
+    // Extension controls — see the shared half for why the return codes are checked.
+    // ------------------------------------------------------------------------------------------
+
+    private int SetNoiseSuppressionCore(AgoraNoiseSuppression mode) =>
+        mode == AgoraNoiseSuppression.Off
+            ? (int)_engine.SetAinsMode(false, AgoraAinsMode.Balanced)
+            : (int)_engine.SetAinsMode(true, (AgoraAinsMode)(long)mode);
+
+    private int SetVoiceBeautifierCore(AgoraVoiceBeautifier preset) =>
+        (int)_engine.SetVoiceBeautifierPreset((Net.Agora.Video.iOS.AgoraVoiceBeautifierPreset)(long)preset);
+
+    private int SetAudioEffectCore(AgoraAudioEffect preset) =>
+        (int)_engine.SetAudioEffectPreset((Net.Agora.Video.iOS.AgoraAudioEffectPreset)(long)preset);
+
+    private int SetVirtualBackgroundCore(AgoraVirtualBackground? background)
+    {
+        // Null for both is what the header documents for a disable, and passing null segData for
+        // an enable takes the engine's own segmentation defaults — the Android side has no
+        // equivalent and needs an object either way.
+        if (background is null)
+        {
+            return (int)_engine.EnableVirtualBackground(false, null, null);
+        }
+
+        var source = new AgoraVirtualBackgroundSource
+        {
+            BackgroundSourceType = (AgoraVirtualBackgroundSourceType)(ulong)background.SourceType,
+            Color = background.Color,
+            Source = background.Path,
+            BlurDegree = (AgoraBlurDegree)(ulong)background.Blur,
+        };
+
+        return (int)_engine.EnableVirtualBackground(true, source, null);
+    }
+
+    private int SetVideoDenoiserCore(bool enabled) =>
+        (int)_engine.SetVideoDenoiserOptions(enabled, new AgoraVideoDenoiserOptions());
+
+    private int SetLowLightEnhanceCore(bool enabled) =>
+        (int)_engine.SetLowlightEnhanceOptions(enabled, new AgoraLowlightEnhanceOptions());
+
+    private int SetColorEnhanceCore(bool enabled) =>
+        (int)_engine.SetColorEnhanceOptions(enabled, new AgoraColorEnhanceOptions());
+
+    private int EnableFaceDetectionCore(bool enabled) => (int)_engine.EnableFaceDetection(enabled);
 }

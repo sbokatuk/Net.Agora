@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MAUI conveniences over Net.Agora.Chat: the platform glue a MAUI app would otherwise write by
+    hand — today that is the Android Activity lookup behind CreateClient(). No view, no handler:
+    chat renders nothing, which is why this package is the same shape as Net.Agora.Voice.Maui and
+    much smaller than Net.Agora.Video.Maui.
+
+    Separate from Net.Agora.Chat on purpose. Everything here needs Microsoft.Maui.Essentials, and
+    forcing that on a plain .NET for Android or .NET for iOS consumer to get a Chat client would
+    be a poor trade.
+
+    No Mac Catalyst leg — see Net.Agora.Chat.csproj.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+
+    <AssemblyName>Net.Agora.Chat.Maui</AssemblyName>
+    <RootNamespace>Net.Agora.Chat.Maui</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <VersionPrefix>$(AgoraChatIosVersion).$(AgoraChatBindingRevision)</VersionPrefix>
+
+    <!--
+      UseMauiCore rather than UseMaui: this is a library of extensions, not an app, and the full
+      UseMaui brings in app-only targets (resource generation, splash screens) that have nothing
+      to do here.
+    -->
+    <UseMauiCore>true</UseMauiCore>
+    <UseMauiEssentials>true</UseMauiEssentials>
+    <SingleProject>true</SingleProject>
+
+    <!--
+      MA002: since .NET 8, UseMauiCore/UseMauiEssentials no longer implicitly add the matching
+      PackageReference — they still set up everything actually needed to build and pack this
+      project, and the suggested explicit PackageReference is version-pinned to a single band,
+      which fights the net8/net9/net10 multi-targeting here. Silencing the advisory rather than
+      the underlying behavior.
+    -->
+    <SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      $(Version) first, so an explicit -p:Version=... (what BuildNugets.sh passes — including beta
+      suffixes) pins the dependency to the façade being packed alongside. $(Version) is only
+      non-empty at evaluation time when passed like that, so a plain build (e.g. of the solution)
+      falls through to $(VersionPrefix) rather than producing an invalid empty pin '[]'.
+    -->
+    <AgoraChatDependencyVersion Condition=" '$(AgoraChatDependencyVersion)' == '' ">$(Version)</AgoraChatDependencyVersion>
+    <AgoraChatDependencyVersion Condition=" '$(AgoraChatDependencyVersion)' == '' And '$(VersionSuffix)' != '' ">$(VersionPrefix)-$(VersionSuffix)</AgoraChatDependencyVersion>
+    <AgoraChatDependencyVersion Condition=" '$(AgoraChatDependencyVersion)' == '' ">$(VersionPrefix)</AgoraChatDependencyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Net.Agora.Chat" Version="[$(AgoraChatDependencyVersion)]" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Net.Agora.Chat.Maui</PackageId>
+    <Title>.NET MAUI helpers for Net.Agora.Chat.</Title>
+    <Description>The platform glue a .NET MAUI app needs to use Net.Agora.Chat without writing platform code: CreateClient() supplies the Android Context that ChatClient.Init requires. Add Net.Agora.Chat on its own if you are not using MAUI.</Description>
+    <PackageTags>Agora;Chat;IM;messaging;realtime;SDK;MAUI;Android;iOS</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+</Project>

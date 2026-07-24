@@ -26,6 +26,10 @@ public static class Packages
     public const string SignalingAndroid = "Net.Agora.Signaling.Android";
     public const string SignalingIOS = "Net.Agora.Signaling.iOS";
     public const string Signaling = "Net.Agora.Signaling";
+    public const string ChatAndroid = "Net.Agora.Chat.Android";
+    public const string ChatIOS = "Net.Agora.Chat.iOS";
+    public const string Chat = "Net.Agora.Chat";
+    public const string ChatMaui = "Net.Agora.Chat.Maui";
 
     /// <summary>
     /// One row per product this repository packs: the façade package, its MAUI companion, and the
@@ -39,6 +43,7 @@ public static class Packages
         // No MAUI companion: RTM needs no Android Context and renders nothing, so there is no
         // platform glue to hide — see src/Net.Agora.Signaling/Net.Agora.Signaling.csproj.
         (Signaling, null, SignalingAndroid, SignalingIOS),
+        (Chat, ChatMaui, ChatAndroid, ChatIOS),
     ];
 
     public static IEnumerable<object[]> ProductRows =>

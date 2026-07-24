@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MAUI sample that signs in to Agora Chat, sends text messages and shows what arrives, plus the
+    local conversation list. Consumes the packed Net.Agora.Chat and Net.Agora.Chat.Maui packages
+    from artifacts/ (see NuGet.config), so it exercises them exactly as a consumer would — the
+    .Maui companion is what lets MainPage construct a client without an #if ANDROID block.
+
+    Target frameworks follow the SDK band, like the binding projects. No Mac Catalyst leg — see
+    src/Net.Agora.Chat/Net.Agora.Chat.csproj.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Net.Agora.Sample.Chat</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+
+    <ApplicationTitle>Net.Agora Chat Sample</ApplicationTitle>
+    <ApplicationId>com.sbokatuk.agora.sample.chat</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">13.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+    <MauiFont Include="Resources\Fonts\*" />
+    <MauiImage Include="Resources\Images\*" />
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!--
+      Defaults to the version in Directory.Build.props so a plain build after
+      "build/BuildNugets.sh chat" works; override with -p:AgoraChatPackageVersion=... to test a
+      specific build.
+    -->
+    <AgoraChatPackageVersion Condition=" '$(AgoraChatPackageVersion)' == '' ">$(AgoraChatIosVersion).$(AgoraChatBindingRevision)</AgoraChatPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+
+    <!--
+      Supplies ILoggingBuilder.AddDebug, which MauiProgram calls inside #if DEBUG. Referenced
+      unconditionally rather than only for Debug: a configuration-dependent PackageReference makes
+      restore differ between configurations, and this is how the MAUI template ships it.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
+
+    <!--
+      Net.Agora.Chat.Maui pulls in Net.Agora.Chat, which in turn brings the platform binding that
+      matches whichever target framework is being built. Exact version, in brackets — a bare
+      version is a *minimum* to NuGet, so a build missing from artifacts/ would silently resolve
+      from nuget.org instead of failing the restore.
+    -->
+    <PackageReference Include="Net.Agora.Chat.Maui" Version="[$(AgoraChatPackageVersion)]" />
+  </ItemGroup>
+
+</Project>
