@@ -10,12 +10,12 @@ Three repositories, each independently versioned and released — see the root
 [README](../README.md#how-this-repository-works):
 
 - **[`Net.Agora.Android`](https://github.com/sbokatuk/Net.Agora.Android)** — the raw Android
-  bindings (Video and Voice).
-- **[`Net.Agora.iOS`](https://github.com/sbokatuk/Net.Agora.iOS)** — the raw iOS bindings (Video
-  and Voice).
+  bindings (Video, Voice, Signaling and Chat).
+- **[`Net.Agora.iOS`](https://github.com/sbokatuk/Net.Agora.iOS)** — the raw iOS bindings (Video,
+  Voice, Signaling and Chat).
 - **`Net.Agora`** (this repository) — the façades (`Net.Agora.Video`, `Net.Agora.Video.Maui`,
-  `Net.Agora.Voice`, `Net.Agora.Voice.Maui`, `Net.Agora.Signaling`) only. It binds no native
-  code itself.
+  `Net.Agora.Voice`, `Net.Agora.Voice.Maui`, `Net.Agora.Signaling`, `Net.Agora.Chat`,
+  `Net.Agora.Chat.Maui`) only. It binds no native code itself.
 
 **This repository binds nothing.** No `ApiDefinition.cs`, no `.aar`, no
 `AndroidLibrary`/`NativeReference` — each façade depends on its platform packages the same way any
@@ -40,17 +40,20 @@ src/
   Net.Agora.Voice.Maui/         the MAUI platform glue (no view — voice renders nothing)
   Net.Agora.Signaling/          the cross-platform Signaling (RTM) client — no MAUI companion,
                                  nothing platform-specific to hide
+  Net.Agora.Chat/               the cross-platform Chat (IM) client
+  Net.Agora.Chat.Maui/          the MAUI platform glue (no view — chat renders nothing)
 tests/
   Net.Agora.PackageTests/       asserts this repository's own packages' shape and pinned dependencies
   Net.Agora.UnitTests/          the platform-neutral façade logic — options validation, the
-                                 event-arg types, for both products — no device, no packages, no workload
+                                 event-arg types, for every product — no device, no packages, no workload
   Net.Agora.DeviceTests/        on-device smoke checks against a packed façade package — one
                                  project, an Android and an iOS head, same checks on both; the
-                                 product is selected with -p:AgoraDeviceProduct=Video|Voice
+                                 product is selected with -p:AgoraDeviceProduct=Video|Voice|Signaling|Chat
 samples/
   Net.Agora.Sample/             the MAUI sample app (Video)
   Net.Agora.Sample.Voice/       the MAUI sample app (Voice)
   Net.Agora.Sample.Signaling/   the MAUI sample app (Signaling — a tiny chat room)
+  Net.Agora.Sample.Chat/        the MAUI sample app (Chat — one-to-one messaging)
 assets/                         the package icon
 Net.Agora.sln                   every project above except the sample, which consumes packed
                                  packages from ./artifacts and would break a plain restore
@@ -82,17 +85,18 @@ source):
 
 ```sh
 # In sbokatuk/Net.Agora.Android and sbokatuk/Net.Agora.iOS:
-./build/BuildNugets.sh    # (iOS needs ./build/fetch-video.sh and ./build/fetch-voice.sh run first)
+./build/BuildNugets.sh    # (iOS needs the build/fetch-*.sh scripts run first)
 
 # Copy both repos' artifacts/*.nupkg into this repository's artifacts/, then:
 ./build/BuildNugets.sh video                          # the product's own version from Directory.Build.props
 ./build/BuildNugets.sh voice                          # same, for the Voice packages
 ./build/BuildNugets.sh signaling                      # same, for Net.Agora.Signaling
+./build/BuildNugets.sh chat                          # same, for the Chat packages
 ./build/BuildNugets.sh video --suffix beta.12.34      # prerelease: the product's version plus a suffix
 ```
 
 There is no way to pass a whole version: the products sit on independent native version lines
-(RTC 4.6.x, RTM 2.2.x), so each packs at its own pin and releases publish whatever the pins say —
+(RTC 4.6.x, RTM 2.2.x, Chat 1.4.x), so each packs at its own pin and releases publish whatever the pins say —
 see the release workflow.
 
 Output lands in `./artifacts`, which `NuGet.config` exposes as a package source so the tests and

@@ -155,4 +155,46 @@ public sealed partial class AgoraVideoClient
         public override void OnError(int err) =>
             owner.RaiseError(RtcEngine.GetErrorDescription(err) ?? $"Agora error {err}", err);
     }
+
+    // ------------------------------------------------------------------------------------------
+    // Extension controls — see the shared half for why the return codes are checked.
+    // ------------------------------------------------------------------------------------------
+
+    private int SetNoiseSuppressionCore(AgoraNoiseSuppression mode) =>
+        mode == AgoraNoiseSuppression.Off
+            ? _engine.SetAINSMode(false, (int)AgoraNoiseSuppression.Balanced)
+            : _engine.SetAINSMode(true, (int)mode);
+
+    private int SetVoiceBeautifierCore(AgoraVoiceBeautifier preset) =>
+        _engine.SetVoiceBeautifierPreset((int)preset);
+
+    private int SetAudioEffectCore(AgoraAudioEffect preset) =>
+        _engine.SetAudioEffectPreset((int)preset);
+
+    private int SetVirtualBackgroundCore(AgoraVirtualBackground? background)
+    {
+        // Both parameters are required on this platform, unlike iOS where either may be nil, so a
+        // disable still passes a source object — its contents are ignored when enabled is false.
+        var source = new VirtualBackgroundSource();
+        if (background is not null)
+        {
+            source.BackgroundSourceType = background.SourceType;
+            source.Color = (int)background.Color;
+            source.Source = background.Path;
+            source.BlurDegree = (int)background.Blur;
+        }
+
+        return _engine.EnableVirtualBackground(background is not null, source, new SegmentationProperty());
+    }
+
+    private int SetVideoDenoiserCore(bool enabled) =>
+        _engine.SetVideoDenoiserOptions(enabled, new VideoDenoiserOptions());
+
+    private int SetLowLightEnhanceCore(bool enabled) =>
+        _engine.SetLowlightEnhanceOptions(enabled, new LowLightEnhanceOptions());
+
+    private int SetColorEnhanceCore(bool enabled) =>
+        _engine.SetColorEnhanceOptions(enabled, new ColorEnhanceOptions());
+
+    private int EnableFaceDetectionCore(bool enabled) => _engine.EnableFaceDetection(enabled);
 }

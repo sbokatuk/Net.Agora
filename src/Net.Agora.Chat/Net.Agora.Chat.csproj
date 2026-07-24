@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The cross-platform API: signs in to Agora Chat, sends and receives text messages and reads the
+    conversation list with one surface over Android's ChatClient and iOS's AgoraChatClient.
+
+    Deliberately no MAUI dependency here — but, unlike Signaling, there is a MAUI companion
+    package: Android's ChatClient.Init takes a Context, so a MAUI app would otherwise need an
+    #if ANDROID block just to construct a client.
+
+    No Mac Catalyst leg: Agora ships no maccatalyst slice for AgoraChat.xcframework — see
+    sbokatuk/Net.Agora.iOS's README.
+
+    Both platforms' target frameworks are listed together, which is why this can only be packed on
+    macOS — restoring the iOS leg needs the iOS workload. See build/BuildNugets.sh.
+
+    Net.Agora.Chat.Android and Net.Agora.Chat.iOS are NOT part of this repository — this package
+    depends on them the same way any consumer would, at an exact pinned version
+    (NetAgoraChatAndroidVersion / NetAgoraChatIosVersion in Directory.Build.props), restored from
+    nuget.org (or, for local development, from the ./artifacts folder source in NuGet.config once
+    those two repositories' own build/BuildNugets.sh has packed them there). See docs/BUILD.md.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+
+    <AssemblyName>Net.Agora.Chat</AssemblyName>
+    <RootNamespace>Net.Agora.Chat</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <VersionPrefix>$(AgoraChatIosVersion).$(AgoraChatBindingRevision)</VersionPrefix>
+  </PropertyGroup>
+
+  <!--
+    Platform code is picked per target framework rather than by the default glob, which would try
+    to compile the Android half into the iOS assembly.
+  -->
+  <ItemGroup>
+    <Compile Remove="Platforms/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <Compile Include="Platforms/Android/**/*.cs" />
+    <PackageReference Include="Net.Agora.Chat.Android" Version="[$(NetAgoraChatAndroidVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <Compile Include="Platforms/Apple/**/*.cs" />
+    <PackageReference Include="Net.Agora.Chat.iOS" Version="[$(NetAgoraChatIosVersion)]" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Net.Agora.Chat</PackageId>
+    <Title>Cross-platform .NET client for the Agora Chat (IM) SDK.</Title>
+    <Description>One API over the Agora Chat SDK for Android and iOS: sign in, send and receive text messages and read the conversation list with awaitable calls and ordinary .NET events, instead of writing a per-platform adapter over Java callbacks and Objective-C completion blocks. Pulls in the platform binding that matches whichever target framework you build. Add Net.Agora.Chat.Maui in a .NET MAUI app to skip the Android Context plumbing.</Description>
+    <PackageTags>Agora;Chat;IM;messaging;realtime;SDK;MAUI;Android;iOS;Binding</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+</Project>

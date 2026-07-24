@@ -115,4 +115,81 @@ public interface IAgoraVideoClient : IDisposable
 
     /// <summary>Replaces the channel token — see <see cref="TokenPrivilegeWillExpire"/>.</summary>
     void RenewToken(string token);
+
+    // ------------------------------------------------------------------------------------------
+    // Extension controls
+    //
+    // Every call below is a switch on the engine, and every one of them needs a native payload
+    // that neither RTC package carries — Agora ships the optional features as separate artifacts,
+    // and each has its own Net.Agora.Extensions.* package pair. The switch is always callable; it
+    // is the *effect* that is missing without the package, and the SDKs report that as an ordinary
+    // failure code, which these methods raise as an exception rather than swallow.
+    //
+    // Not every extension has a facade call. The spatial-audio engine, content inspection and face
+    // capture each need a surface of their own; the video-quality analyser and the software
+    // encoders are chosen by the engine itself once present, so there is nothing to call. Their
+    // packages still ship, and the platform bindings still expose them.
+    // ------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Turns the AI noise suppressor on at the given aggressiveness, or off.
+    /// Needs <c>Net.Agora.Extensions.Ains.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <exception cref="AgoraVideoException">
+    /// The SDK refused — most often because the extension package is not referenced.
+    /// </exception>
+    void SetNoiseSuppression(AgoraNoiseSuppression mode);
+
+    /// <summary>
+    /// Applies a voice-timbre preset, or <see cref="AgoraVoiceBeautifier.Off"/> to clear it.
+    /// Needs <c>Net.Agora.Extensions.AudioBeauty.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <remarks>Overwrites any <see cref="SetAudioEffect"/> preset, and is overwritten by one.</remarks>
+    /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    void SetVoiceBeautifier(AgoraVoiceBeautifier preset);
+
+    /// <summary>
+    /// Applies a room-acoustics or voice-changer preset, or <see cref="AgoraAudioEffect.Off"/> to
+    /// clear it. Needs <c>Net.Agora.Extensions.AudioBeauty.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <remarks>Overwrites any <see cref="SetVoiceBeautifier"/> preset, and is overwritten by one.</remarks>
+    /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    void SetAudioEffect(AgoraAudioEffect preset);
+
+    /// <summary>
+    /// Puts a blurred, coloured or pictured background behind the local camera's subject, or
+    /// removes it with null. Needs <c>Net.Agora.Extensions.VirtualBackground.Android</c> /
+    /// <c>.iOS</c>, and the camera to be running.
+    /// </summary>
+    /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    void SetVirtualBackground(AgoraVirtualBackground? background);
+
+    /// <summary>
+    /// Turns the video denoiser on or off. Needs
+    /// <c>Net.Agora.Extensions.ClearVision.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    void SetVideoDenoiser(bool enabled);
+
+    /// <summary>
+    /// Turns low-light enhancement on or off. Needs
+    /// <c>Net.Agora.Extensions.ClearVision.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <remarks>Both SDKs document enabling <see cref="SetVideoDenoiser"/> first.</remarks>
+    /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    void SetLowLightEnhance(bool enabled);
+
+    /// <summary>
+    /// Turns colour enhancement on or off. Needs
+    /// <c>Net.Agora.Extensions.ClearVision.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    void SetColorEnhance(bool enabled);
+
+    /// <summary>
+    /// Turns local face detection on or off. Needs
+    /// <c>Net.Agora.Extensions.FaceDetection.Android</c> / <c>.iOS</c>.
+    /// </summary>
+    /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    void EnableFaceDetection(bool enabled);
 }

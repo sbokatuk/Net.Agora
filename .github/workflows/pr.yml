@@ -89,4 +89,7 @@ jobs:
               echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_VIDEO_PACKAGE_VERSION}-${s})"
             done
             echo "- [Net.Agora.Signaling](https://www.nuget.org/packages/Net.Agora.Signaling/${AGORA_SIGNALING_PACKAGE_VERSION}-${s})"
+            for id in Net.Agora.Chat.Maui Net.Agora.Chat; do
+              echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_CHAT_PACKAGE_VERSION}-${s})"
+            done
           } >> "$GITHUB_STEP_SUMMARY"

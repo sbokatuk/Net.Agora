@@ -1,7 +1,12 @@
 // One suite, two products: the same checks compile against the Video or the Voice façade (see
 // the csproj's AgoraDeviceProduct), so the aliases below are the only per-product spelling. The
 // few genuinely product-specific checks sit behind AGORA_VOICE.
-#if AGORA_SIGNALING
+#if AGORA_CHAT
+using Net.Agora.Chat;
+using AgoraClient = Net.Agora.Chat.AgoraChatClient;
+using AgoraClientException = Net.Agora.Chat.AgoraChatException;
+using AgoraClientOptions = Net.Agora.Chat.AgoraChatOptions;
+#elif AGORA_SIGNALING
 using Net.Agora.Signaling;
 using AgoraClient = Net.Agora.Signaling.AgoraSignalingClient;
 using AgoraClientException = Net.Agora.Signaling.AgoraSignalingException;
@@ -74,6 +79,8 @@ public static class SmokeTests
 
     private const string ChannelId = "agora-devicetests-smoke";
 
+    private const string UserId = "net-agora-devicetests";
+
     /// <summary>
     /// Generous rather than tight: this runs on a shared CI runner over a real network round trip
     /// to Agora's servers, and the check only cares that a bound exists, not how tight it is.
@@ -94,7 +101,17 @@ public static class SmokeTests
     /// <summary>Every check, in the order they must run.</summary>
     public static SmokeTest[] All =>
     [
-#if AGORA_SIGNALING
+#if AGORA_CHAT
+        new("a missing App ID, user ID or token is rejected before any native call", MissingAppIdIsRejected),
+        new("constructs the client", ConstructsTheClient),
+        new("an empty renew token is rejected", RenewsAToken),
+        new("sending before a sign-in fails as a chat error", SendBeforeLoginFails),
+        new("the local conversation list is readable and empty", ReadsAnEmptyConversationList),
+        new("cancelling the token surfaces as OperationCanceledException", CancellationIsDistinctFromTimeout),
+        new("an unregistered App ID fails the sign-in within the configured timeout", LoginFailsWithinTimeout),
+        new("sign-out without a sign-in is a no-op", LogoutWithoutALoginIsANoOp),
+        new("disposes cleanly", DisposesCleanly),
+#elif AGORA_SIGNALING
         new("a missing App ID or user ID is rejected before any native call", MissingAppIdIsRejected),
         new("constructs the client", ConstructsTheClient),
         new("an empty renew token is rejected, a shaped one is accepted", RenewsAToken),
@@ -112,6 +129,7 @@ public static class SmokeTests
         new("drives the media, speakerphone and volume controls without throwing", EnablesAndDisablesMedia),
 #endif
         new("an empty renew token is rejected, a shaped one is accepted", RenewsAToken),
+        new("the referenced extensions' native payloads are present", ExtensionsAreAvailable),
         new("rejects a second join while one is pending", SecondJoinWhilePendingIsRejected),
         new("cancelling the token surfaces as OperationCanceledException", CancellationIsDistinctFromTimeout),
         new("an unregistered App ID fails the join within the configured timeout", JoinFailsWithinTimeout),
@@ -129,7 +147,9 @@ public static class SmokeTests
             options,
             AndroidContext ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set."));
 #else
-        // Signaling needs no Context on Android — the constructor is the same on both platforms.
+        // Signaling is the one product that needs no Context on Android — RTM has no engine to
+        // hand one to — so its constructor is the same on both platforms. Chat's ChatClient.Init
+        // does need one, which is why it takes the branch above.
         return new AgoraClient(options);
 #endif
     }
@@ -137,7 +157,157 @@ public static class SmokeTests
     private static AgoraClient Client =>
         _client ?? throw new InvalidOperationException("the client has not been constructed yet.");
 
-#if AGORA_SIGNALING
+#if AGORA_CHAT
+    private static void MissingAppIdIsRejected()
+    {
+        // The one call in this façade's own code (rather than the bindings') that validates before
+        // touching a native client. Chat asks for the most of any product here: an App ID (or the
+        // Easemob-style app key, but not both), a user ID, and a token — Chat has no App ID-only
+        // authentication mode to fall back on.
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions()),
+            "a missing App ID");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppId = AppId, AppKey = "org#app" }),
+            "both an App ID and an app key");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppId = AppId }),
+            "a missing user ID");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppId = AppId, UserId = UserId }),
+            "a missing token");
+    }
+
+    private static void ConstructsTheClient()
+    {
+        _client = CreateClient(new AgoraClientOptions
+        {
+            AppId = AppId,
+            UserId = UserId,
+            Token = AppId,
+            Timeout = JoinTimeout,
+        });
+
+        Assert(!Client.IsLoggedIn, "IsLoggedIn is true before any sign-in was attempted.");
+        Assert(Client.CurrentUserId is null, "CurrentUserId is set before any sign-in was attempted.");
+    }
+
+    private static void RenewsAToken()
+    {
+        // Only the façade's own guard is exercised. Unlike Signaling's RenewToken — a fire-and-
+        // forget call — Chat's is awaitable, and neither SDK promises a callback for a renewal
+        // outside a session, so a shaped token here would hang until the timeout rather than
+        // prove anything.
+        ThrowsAsync<ArgumentException>(() => Client.RenewTokenAsync(" "), "a whitespace renew token")
+            .GetAwaiter().GetResult();
+    }
+
+    private static async Task SendBeforeLoginFails()
+    {
+        // The cheapest full round trip the suite has: the call crosses the bridge, the SDK
+        // rejects it (not signed in), and the failure comes back as the façade's typed exception —
+        // no network, no credentials. It is also the one check that proves the two very different
+        // completion paths work, since Android reports a send through a callback attached to the
+        // message and iOS through a block on the send call.
+        var error = await ThrowsAsync<AgoraClientException>(
+            () => Client.SendTextMessageAsync("net-agora-devicetests-peer", "hello"),
+            "a send before any sign-in");
+
+        Report($"send rejected: [{error.ErrorCode}] {error.Message}");
+    }
+
+    private static void ReadsAnEmptyConversationList()
+    {
+        // Local-only, so it answers without a session — and on a fresh install there is nothing in
+        // the SDK's database to answer with. What is being proved is that the two very different
+        // native shapes (Android's sorted List, iOS's unordered array) both come back as an
+        // ordinary empty IReadOnlyList rather than null or a throw.
+        var conversations = Client.GetConversations();
+
+        Assert(conversations is not null, "GetConversations returned null.");
+        Assert(conversations!.Count == 0, $"GetConversations returned {conversations.Count} on a fresh install.");
+    }
+
+    private static async Task CancellationIsDistinctFromTimeout()
+    {
+        using var cancelSoon = new CancellationTokenSource();
+
+        var login = Client.LoginAsync(cancelSoon.Token);
+
+        // Cancelled synchronously, before any response could arrive, so "the caller's token wins"
+        // is deterministic rather than a race against service latency — same reasoning as the
+        // other flavours.
+        cancelSoon.Cancel();
+
+        await ThrowsAsync<OperationCanceledException>(
+            () => login,
+            "a sign-in cancelled through its own token");
+    }
+
+    private static async Task LoginFailsWithinTimeout()
+    {
+        // A failing sign-in is also the one moment this credential-less suite can see the
+        // connection lifecycle move, so the event wiring is asserted here rather than in a check
+        // of its own.
+        var states = new List<AgoraChatConnectionState>();
+        void OnState(object? sender, AgoraChatConnectionStateEventArgs e)
+        {
+            lock (states)
+            {
+                states.Add(e.State);
+            }
+            Report($"connection state: {e.State}");
+        }
+
+        var started = DateTimeOffset.UtcNow;
+
+        Client.ConnectionStateChanged += OnState;
+        try
+        {
+            var error = await ThrowsAsync<AgoraClientException>(
+                () => Client.LoginAsync(),
+                "a sign-in with an unregistered App ID");
+
+            Report($"failed after {(DateTimeOffset.UtcNow - started).TotalSeconds:0.0}s: " +
+                $"[{error.ErrorCode}] {error.Message}");
+        }
+        finally
+        {
+            Client.ConnectionStateChanged -= OnState;
+        }
+
+        // Observed, not asserted, for the same reason as Signaling: Chat only reports connection
+        // states once a link attempt actually begins, and a sign-in the service refuses up front
+        // never gets that far.
+        lock (states)
+        {
+            Report(states.Count > 0
+                ? $"observed {states.Count} connection state change(s)"
+                : "no connection state change before the rejection — expected for an up-front refusal");
+        }
+
+        Assert(!Client.IsLoggedIn, "IsLoggedIn is true after a sign-in that should have failed.");
+    }
+
+    private static async Task LogoutWithoutALoginIsANoOp()
+    {
+        // Returns without crossing the bridge when there is no session — so, unlike the RTC
+        // products' Leave, this cannot hang waiting for a callback that never comes.
+        await Client.LogoutAsync();
+        await Client.LogoutAsync();
+
+        Assert(!Client.IsLoggedIn, "IsLoggedIn is true after LogoutAsync.");
+    }
+
+    private static void DisposesCleanly()
+    {
+        Client.Dispose();
+        // IDisposable.Dispose must tolerate being called more than once.
+        Client.Dispose();
+
+        Assert(!Client.IsLoggedIn, "IsLoggedIn is true after Dispose.");
+    }
+#elif AGORA_SIGNALING
     private static void MissingAppIdIsRejected()
     {
         // The one call in this façade's own code (rather than the bindings') that validates
@@ -369,6 +539,77 @@ public static class SmokeTests
         await ThrowsAsync<OperationCanceledException>(
             () => first,
             "the first (still-pending) join, once cancelled");
+    }
+
+    private static void ExtensionsAreAvailable()
+    {
+        // The point of this check is what it can only fail at runtime: every call below compiles
+        // and links whether or not the extension's native payload is in the app. Confirmed by
+        // building the same app with -p:AgoraReferenceExtensions=false, where SetLowLightEnhance
+        // is refused with code -2 and this check fails.
+        //
+        // It is a lower bound, not a full audit. In that same run the AINS and audio-preset
+        // switches still answered 0, because the engine only goes looking for those plugins when
+        // the audio pipeline actually starts — which this credential-free suite never reaches.
+        // They are still called: a regression that turned one of them into an error would show up
+        // here even though their success proves nothing.
+        //
+        // Before a join, deliberately: an extension is a media-pipeline switch, not a channel
+        // operation, and none of these needs a connection — which keeps the check credential-free
+        // like the rest of the suite.
+        Client.SetNoiseSuppression(AgoraNoiseSuppression.Aggressive);
+        Client.SetNoiseSuppression(AgoraNoiseSuppression.Off);
+
+        Client.SetVoiceBeautifier(AgoraVoiceBeautifier.Fresh);
+        Client.SetVoiceBeautifier(AgoraVoiceBeautifier.Off);
+
+        // Mutually exclusive with the beautifier — set after it, so the last write wins and the
+        // engine is left clean either way.
+        Client.SetAudioEffect(AgoraAudioEffect.Studio);
+        Client.SetAudioEffect(AgoraAudioEffect.Off);
+
+#if !AGORA_VOICE
+        // Video-only: the voice engine has no pipeline for these to act on, and its facade does
+        // not expose them. These three are the ones whose refusal is unambiguous — an Android
+        // emulator and an iOS simulator both accept them when the ClearVision payload is present
+        // and refuse them when it is not.
+        Client.SetVideoDenoiser(true);
+        Client.SetLowLightEnhance(true);
+        Client.SetColorEnhance(true);
+
+        Client.SetColorEnhance(false);
+        Client.SetLowLightEnhance(false);
+        Client.SetVideoDenoiser(false);
+
+        // Reported rather than asserted. These two answer -4 ("not supported") for a device that
+        // cannot run the feature *and* for a missing payload, and an emulator is exactly such a
+        // device: the Android emulator refuses the virtual background at -4 with the package
+        // referenced and its .so in the APK. Asserting here would make the suite fail on the
+        // hardware it runs on rather than on a real regression.
+        Report($"virtual background: {Attempt(() => Client.SetVirtualBackground(AgoraVirtualBackground.Blurred()))}");
+        Attempt(() => Client.SetVirtualBackground(null));
+        Report($"face detection: {Attempt(() => Client.EnableFaceDetection(true))}");
+        Attempt(() => Client.EnableFaceDetection(false));
+#endif
+
+        Report("every asserted extension switch answered 0");
+    }
+
+    /// <summary>
+    /// Runs an extension switch whose refusal is not conclusive, and describes what happened
+    /// instead of failing the check.
+    /// </summary>
+    private static string Attempt(Action call)
+    {
+        try
+        {
+            call();
+            return "accepted";
+        }
+        catch (AgoraClientException exception)
+        {
+            return $"refused ({exception.ErrorCode}) — expected on hardware without the feature";
+        }
     }
 
     private static async Task CancellationIsDistinctFromTimeout()

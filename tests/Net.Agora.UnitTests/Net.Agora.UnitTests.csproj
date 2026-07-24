@@ -29,12 +29,17 @@
     <Compile Include="../../src/Net.Agora.Video/AgoraVideoOptions.cs" Link="Facade/AgoraVideoOptions.cs" />
     <Compile Include="../../src/Net.Agora.Video/AgoraVideoEvents.cs" Link="Facade/AgoraVideoEvents.cs" />
     <Compile Include="../../src/Net.Agora.Video/IAgoraVideoClient.cs" Link="Facade/IAgoraVideoClient.cs" />
+    <Compile Include="../../src/Net.Agora.Video/AgoraVideoExtensions.cs" Link="Facade/AgoraVideoExtensions.cs" />
     <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceOptions.cs" Link="Facade/AgoraVoiceOptions.cs" />
     <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceEvents.cs" Link="Facade/AgoraVoiceEvents.cs" />
     <Compile Include="../../src/Net.Agora.Voice/IAgoraVoiceClient.cs" Link="Facade/IAgoraVoiceClient.cs" />
+    <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceExtensions.cs" Link="Facade/AgoraVoiceExtensions.cs" />
     <Compile Include="../../src/Net.Agora.Signaling/AgoraSignalingOptions.cs" Link="Facade/AgoraSignalingOptions.cs" />
     <Compile Include="../../src/Net.Agora.Signaling/AgoraSignalingEvents.cs" Link="Facade/AgoraSignalingEvents.cs" />
     <Compile Include="../../src/Net.Agora.Signaling/IAgoraSignalingClient.cs" Link="Facade/IAgoraSignalingClient.cs" />
+    <Compile Include="../../src/Net.Agora.Chat/AgoraChatOptions.cs" Link="Facade/AgoraChatOptions.cs" />
+    <Compile Include="../../src/Net.Agora.Chat/AgoraChatEvents.cs" Link="Facade/AgoraChatEvents.cs" />
+    <Compile Include="../../src/Net.Agora.Chat/IAgoraChatClient.cs" Link="Facade/IAgoraChatClient.cs" />
   </ItemGroup>
 
 </Project>

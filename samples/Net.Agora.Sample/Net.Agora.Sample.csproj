@@ -65,6 +65,20 @@
       from artifacts/ would silently resolve from nuget.org instead of failing the restore.
     -->
     <PackageReference Include="Net.Agora.Video.Maui" Version="[$(AgoraVideoPackageVersion)]" />
+
+    <!--
+      The extensions the page's three feature switches drive. Platform packages, not facades —
+      there is no cross-platform package for them — so each platform gets its own reference at the
+      platform binding's pinned version. Leave them out and the switches still compile; they just
+      answer a failure code at runtime, which is what the sample then shows.
+    -->
+    <PackageReference Include="Net.Agora.Extensions.VirtualBackground.Android" Version="[$(NetAgoraVideoAndroidVersion)]" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'" />
+    <PackageReference Include="Net.Agora.Extensions.ClearVision.Android" Version="[$(NetAgoraVideoAndroidVersion)]" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'" />
+    <PackageReference Include="Net.Agora.Extensions.Ains.Android" Version="[$(NetAgoraVideoAndroidVersion)]" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'" />
+
+    <PackageReference Include="Net.Agora.Extensions.VirtualBackground.iOS" Version="[$(NetAgoraVideoIosVersion)]" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'" />
+    <PackageReference Include="Net.Agora.Extensions.ClearVision.iOS" Version="[$(NetAgoraVideoIosVersion)]" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'" />
+    <PackageReference Include="Net.Agora.Extensions.Ains.iOS" Version="[$(NetAgoraVideoIosVersion)]" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'" />
   </ItemGroup>
 
 </Project>

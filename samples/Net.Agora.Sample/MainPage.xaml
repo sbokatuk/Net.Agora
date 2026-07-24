@@ -43,6 +43,20 @@
                     <Switch x:Name="SpeakerSwitch" Toggled="OnSpeakerToggled" />
                 </HorizontalStackLayout>
             </HorizontalStackLayout>
+            <HorizontalStackLayout Spacing="24" HorizontalOptions="Center">
+                <HorizontalStackLayout Spacing="4">
+                    <Label Text="Blur bg" VerticalOptions="Center" />
+                    <Switch x:Name="BlurSwitch" Toggled="OnBlurToggled" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <Label Text="Enhance" VerticalOptions="Center" />
+                    <Switch x:Name="EnhanceSwitch" Toggled="OnEnhanceToggled" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <Label Text="Denoise mic" VerticalOptions="Center" />
+                    <Switch x:Name="NoiseSuppressionSwitch" Toggled="OnNoiseSuppressionToggled" />
+                </HorizontalStackLayout>
+            </HorizontalStackLayout>
             <Label x:Name="SpeakersLabel" Text="nobody is speaking" FontAttributes="Italic" HorizontalOptions="Center" />
         </VerticalStackLayout>
 

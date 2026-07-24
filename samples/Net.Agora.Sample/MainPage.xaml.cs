@@ -216,6 +216,47 @@ public partial class MainPage : ContentPage
         Append(e.Value ? "audio routed to speaker" : "audio routed to earpiece");
     }
 
+    // The extension switches. Each one needs its own Net.Agora.Extensions.* package pair — see
+    // this sample's .csproj — and refuses with an AgoraVideoException when the payload is not in
+    // the app, or when the device cannot run the feature (an emulator refuses the virtual
+    // background either way). Caught and shown rather than crashing the sample, since "this
+    // device cannot do it" is a perfectly ordinary answer.
+
+    private void OnBlurToggled(object sender, ToggledEventArgs e) =>
+        Extension(
+            () => _client?.SetVirtualBackground(e.Value ? AgoraVirtualBackground.Blurred() : null),
+            e.Value ? "background blurred" : "background restored");
+
+    private void OnEnhanceToggled(object sender, ToggledEventArgs e) =>
+        Extension(
+            () =>
+            {
+                // The denoiser first: both SDKs document low-light enhancement wanting it on.
+                _client?.SetVideoDenoiser(e.Value);
+                _client?.SetLowLightEnhance(e.Value);
+                _client?.SetColorEnhance(e.Value);
+            },
+            e.Value ? "video enhancement on" : "video enhancement off");
+
+    private void OnNoiseSuppressionToggled(object sender, ToggledEventArgs e) =>
+        Extension(
+            () => _client?.SetNoiseSuppression(
+                e.Value ? AgoraNoiseSuppression.Aggressive : AgoraNoiseSuppression.Off),
+            e.Value ? "AI noise suppression on" : "AI noise suppression off");
+
+    private void Extension(Action apply, string success)
+    {
+        try
+        {
+            apply();
+            Append(success);
+        }
+        catch (AgoraVideoException exception)
+        {
+            Append($"unavailable: {exception.Message}");
+        }
+    }
+
     private static async Task<bool> RequestCapturePermissionsAsync()
     {
         var camera = await Permissions.RequestAsync<Permissions.Camera>();

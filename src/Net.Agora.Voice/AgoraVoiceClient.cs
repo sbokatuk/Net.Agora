@@ -172,7 +172,48 @@ public sealed partial class AgoraVoiceClient : IAgoraVoiceClient
 
     private void RaiseTokenPrivilegeWillExpire() => TokenPrivilegeWillExpire?.Invoke(this, EventArgs.Empty);
 
-    /// <summary>Called by the platform half when the SDK reports an error.</summary>
+        // ------------------------------------------------------------------------------------------
+    // Extension controls
+    // ------------------------------------------------------------------------------------------
+    // Each of these is one native call whose return code is the only signal that the extension's
+    // payload actually shipped: without the matching Net.Agora.Extensions.* package the engine
+    // answers a failure code from a call that compiled and linked perfectly. So, unlike the rest
+    // of this facade, the code is checked rather than ignored — a missing package is a deployment
+    // mistake worth an exception, not a silently inert switch.
+
+    /// <inheritdoc />
+    public void SetNoiseSuppression(AgoraNoiseSuppression mode) =>
+        Check(SetNoiseSuppressionCore(mode), nameof(SetNoiseSuppression), "Net.Agora.Extensions.Ains");
+
+    /// <inheritdoc />
+    public void SetVoiceBeautifier(AgoraVoiceBeautifier preset) =>
+        Check(SetVoiceBeautifierCore(preset), nameof(SetVoiceBeautifier), "Net.Agora.Extensions.AudioBeauty");
+
+    /// <inheritdoc />
+    public void SetAudioEffect(AgoraAudioEffect preset) =>
+        Check(SetAudioEffectCore(preset), nameof(SetAudioEffect), "Net.Agora.Extensions.AudioBeauty");
+
+    /// <summary>
+    /// Turns a non-zero return from an extension switch into an exception that names the package
+    /// most likely to be missing. Both SDKs answer -4 (not supported) or -157 (module not found)
+    /// for an absent extension, but not consistently across versions, so the message covers the
+    /// case rather than the code.
+    /// </summary>
+    private static void Check(int code, string operation, string package)
+    {
+        if (code == 0)
+        {
+            return;
+        }
+
+        throw new AgoraVoiceException(
+            $"{operation} was refused by the SDK (code {code}). If the extension's native payload " +
+            $"is not in the app, add the {package}.Android / .iOS package for the platform you " +
+            "are building.",
+            code);
+    }
+
+/// <summary>Called by the platform half when the SDK reports an error.</summary>
     private void RaiseError(string message, int errorCode)
     {
         // An error while joining is JoinAsync's result, not just a notification.

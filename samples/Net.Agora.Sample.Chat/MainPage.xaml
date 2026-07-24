@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Net.Agora.Sample.Chat.MainPage"
+             Title="Net.Agora Chat">
+
+    <Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto">
+
+        <Entry x:Name="AppIdEntry" Grid.Row="0" Placeholder="App ID (from the Agora Console)" />
+        <Entry x:Name="UserIdEntry" Grid.Row="1" Placeholder="Your user id" Text="maui-user" />
+        <Entry x:Name="PeerEntry" Grid.Row="2" Placeholder="Who to talk to (their user id)" />
+        <Entry x:Name="TokenEntry" Grid.Row="3" Placeholder="Chat token (required)" />
+
+        <HorizontalStackLayout Grid.Row="4" Spacing="8">
+            <Button x:Name="LoginButton" Text="Sign in" Clicked="OnLoginClicked" />
+            <Button x:Name="LogoutButton" Text="Sign out" Clicked="OnLogoutClicked" IsEnabled="False" />
+            <Button x:Name="ConversationsButton" Text="Conversations" Clicked="OnConversationsClicked" IsEnabled="False" />
+        </HorizontalStackLayout>
+
+        <ScrollView x:Name="MessagesScroll" Grid.Row="5">
+            <Label x:Name="MessagesLabel" FontFamily="OpenSansRegular" FontSize="12" />
+        </ScrollView>
+
+        <Grid Grid.Row="6" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry x:Name="MessageEntry" Placeholder="Say something" IsEnabled="False" />
+            <Button x:Name="SendButton" Grid.Column="1" Text="Send" Clicked="OnSendClicked" IsEnabled="False" />
+        </Grid>
+
+    </Grid>
+
+</ContentPage>
