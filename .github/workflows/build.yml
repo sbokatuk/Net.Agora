@@ -106,7 +106,9 @@ jobs:
           packages: 'platforms;android-34 platforms;android-35 platforms;android-36'
 
       - name: Pack
-        run: ./build/BuildNugets.sh video "${{ inputs.version }}"
+        run: |
+          ./build/BuildNugets.sh video "${{ inputs.version }}"
+          ./build/BuildNugets.sh voice "${{ inputs.version }}"
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
@@ -140,6 +142,19 @@ jobs:
             -p:AgoraVideoPackageVersion="${{ inputs.version }}"
           echo "::endgroup::"
 
+          echo "::group::voice sample net9.0-android35.0"
+          dotnet build samples/Net.Agora.Sample.Voice \
+            -c Debug -f net9.0-android35.0 \
+            -p:AgoraVoicePackageVersion="${{ inputs.version }}"
+          echo "::endgroup::"
+
+          echo "::group::voice sample net9.0-ios18.0"
+          dotnet build samples/Net.Agora.Sample.Voice \
+            -c Debug -f net9.0-ios18.0 \
+            -p:RuntimeIdentifier=iossimulator-arm64 \
+            -p:AgoraVoicePackageVersion="${{ inputs.version }}"
+          echo "::endgroup::"
+
   validate:
     name: validate packages
     needs: pack
@@ -171,7 +186,7 @@ jobs:
           retention-days: 7
 
   e2e-ios:
-    name: simulator checks (${{ matrix.target-framework }})
+    name: simulator checks (${{ matrix.product }}, ${{ matrix.target-framework }})
     timeout-minutes: 45
     needs: pack
     runs-on: macos-15
@@ -180,6 +195,9 @@ jobs:
       # too, since "net8 only" and "both" point at very different causes.
       fail-fast: false
       matrix:
+        # One leg per product: the Video and Voice façades' platform packages carry the same
+        # native artifacts, so a single device test app holds exactly one of them.
+        product: [Video, Voice]
         target-framework: ${{ fromJSON(inputs.e2e-ios-target-frameworks) }}
     steps:
       - uses: actions/checkout@v4
@@ -211,24 +229,26 @@ jobs:
           path: artifacts
 
       - name: Run checks on simulator
-        run: ./.github/scripts/run-simulator-tests.sh "${{ inputs.version }}" "${{ matrix.target-framework }}"
+        run: ./.github/scripts/run-simulator-tests.sh "${{ inputs.version }}" "${{ matrix.target-framework }}" "${{ matrix.product }}"
 
       - name: Upload simulator logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: simulator-test-logs-${{ matrix.target-framework }}
+          name: simulator-test-logs-${{ matrix.product }}-${{ matrix.target-framework }}
           path: simulator-tests.log
           if-no-files-found: ignore
           retention-days: 7
 
   e2e-android:
-    name: emulator checks (${{ matrix.target-framework }})
+    name: emulator checks (${{ matrix.product }}, ${{ matrix.target-framework }})
     timeout-minutes: 60
     needs: pack
     strategy:
       fail-fast: false
       matrix:
+        # One leg per product — see the iOS job's matrix comment.
+        product: [Video, Voice]
         target-framework: ${{ fromJSON(inputs.e2e-android-target-frameworks) }}
     # Linux, unlike the pack job: the emulator needs KVM, which the macOS runners do not have, and
     # the Android head of the device app needs no Apple toolchain to build.
@@ -300,13 +320,13 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front emulated
           disable-animations: true
-          script: ./.github/scripts/run-emulator-tests.sh "${{ inputs.version }}" "${{ matrix.target-framework }}"
+          script: ./.github/scripts/run-emulator-tests.sh "${{ inputs.version }}" "${{ matrix.target-framework }}" "${{ matrix.product }}"
 
       - name: Upload emulator logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: emulator-test-logs-${{ matrix.target-framework }}
+          name: emulator-test-logs-${{ matrix.product }}-${{ matrix.target-framework }}
           path: emulator-tests.log
           if-no-files-found: ignore
           retention-days: 7

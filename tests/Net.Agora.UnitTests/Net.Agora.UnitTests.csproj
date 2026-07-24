@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Covers the platform-independent logic in Net.Agora.Video: AgoraVideoOptions, the event-arg
-    types, and IAgoraVideoClient's contract. Plain net9.0, no workloads, no device.
+    Covers the platform-independent logic in the façades: the options and event-arg types and the
+    client interfaces' contracts, for Video and Voice alike. Plain net9.0, no workloads, no device.
 
-    Net.Agora.Video itself cannot be referenced with an ordinary ProjectReference here: it only
-    multi-targets net*-android/net*-ios (see its own csproj) because AgoraVideoClient's JoinCore /
+    The façades themselves cannot be referenced with an ordinary ProjectReference here: they only
+    multi-target net*-android/net*-ios (see their csproj files) because each client's JoinCore /
     LeaveCore / DisposeCore exist only in Platforms/Android and Platforms/Apple — there is no
     neutral head to build a net9.0 test project against. The files linked in below have no such
-    dependency, so they compile standalone. The concrete client's join/timeout/cancellation/dispose
+    dependency, so they compile standalone. The concrete clients' join/timeout/cancellation/dispose
     state machine needs a real engine to construct and is covered on-device instead — see
     Net.Agora.DeviceTests.
   -->
@@ -29,6 +29,9 @@
     <Compile Include="../../src/Net.Agora.Video/AgoraVideoOptions.cs" Link="Facade/AgoraVideoOptions.cs" />
     <Compile Include="../../src/Net.Agora.Video/AgoraVideoEvents.cs" Link="Facade/AgoraVideoEvents.cs" />
     <Compile Include="../../src/Net.Agora.Video/IAgoraVideoClient.cs" Link="Facade/IAgoraVideoClient.cs" />
+    <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceOptions.cs" Link="Facade/AgoraVoiceOptions.cs" />
+    <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceEvents.cs" Link="Facade/AgoraVoiceEvents.cs" />
+    <Compile Include="../../src/Net.Agora.Voice/IAgoraVoiceClient.cs" Link="Facade/IAgoraVoiceClient.cs" />
   </ItemGroup>
 
 </Project>

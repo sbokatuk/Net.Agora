@@ -1,29 +1,30 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    MAUI sample that joins an Agora RTC channel and publishes/subscribes audio and video.
-    Consumes the packed Net.Agora.Video.Maui package from artifacts/ (see NuGet.config), so it
-    exercises the packages exactly as a consumer would.
+    MAUI sample that joins an Agora RTC channel and publishes/subscribes audio — the voice-only
+    sibling of samples/Net.Agora.Sample, with no video views and no camera permission. Consumes
+    the packed Net.Agora.Voice.Maui package from artifacts/ (see NuGet.config), so it exercises
+    the packages exactly as a consumer would.
 
     Target frameworks follow the SDK band, like the binding projects: no single .NET SDK can build
     net8, net9 and net10 for a platform. Build the other band with -p:AgoraSdkBand=net10 from a
     directory whose global.json selects the .NET 10 SDK.
 
-    No Mac Catalyst leg — see src/Net.Agora.Video/Net.Agora.Video.csproj.
+    No Mac Catalyst leg — see src/Net.Agora.Voice/Net.Agora.Voice.csproj.
   -->
   <PropertyGroup>
     <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
 
     <OutputType>Exe</OutputType>
-    <RootNamespace>Net.Agora.Sample</RootNamespace>
+    <RootNamespace>Net.Agora.Sample.Voice</RootNamespace>
     <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
 
-    <ApplicationTitle>Net.Agora Sample</ApplicationTitle>
-    <ApplicationId>com.sbokatuk.agora.sample</ApplicationId>
+    <ApplicationTitle>Net.Agora Voice Sample</ApplicationTitle>
+    <ApplicationId>com.sbokatuk.agora.sample.voice</ApplicationId>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
 
@@ -42,10 +43,10 @@
   <PropertyGroup>
     <!--
       Defaults to the version in Directory.Build.props so a plain build after
-      "build/BuildNugets.sh video" works; override with -p:AgoraVideoPackageVersion=... to test a
+      "build/BuildNugets.sh voice" works; override with -p:AgoraVoicePackageVersion=... to test a
       specific build.
     -->
-    <AgoraVideoPackageVersion Condition=" '$(AgoraVideoPackageVersion)' == '' ">$(VersionPrefix)</AgoraVideoPackageVersion>
+    <AgoraVoicePackageVersion Condition=" '$(AgoraVoicePackageVersion)' == '' ">$(AgoraVoiceIosVersion).$(AgoraBindingRevision)</AgoraVoicePackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -59,12 +60,12 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
 
     <!--
-      Net.Agora.Video.Maui brings Net.Agora.Video with it, which in turn brings the platform
+      Net.Agora.Voice.Maui brings Net.Agora.Voice with it, which in turn brings the platform
       binding that matches whichever target framework is being built. One reference covers all of
       it. Exact version, in brackets — a bare version is a *minimum* to NuGet, so a build missing
       from artifacts/ would silently resolve from nuget.org instead of failing the restore.
     -->
-    <PackageReference Include="Net.Agora.Video.Maui" Version="[$(AgoraVideoPackageVersion)]" />
+    <PackageReference Include="Net.Agora.Voice.Maui" Version="[$(AgoraVoicePackageVersion)]" />
   </ItemGroup>
 
 </Project>

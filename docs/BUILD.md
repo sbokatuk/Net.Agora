@@ -9,23 +9,23 @@ thing a green pipeline does.
 Three repositories, each independently versioned and released — see the root
 [README](../README.md#how-this-repository-works):
 
-- **[`Net.Agora.Android`](https://github.com/sbokatuk/Net.Agora.Android)** — the raw Video Android
-  binding.
-- **[`Net.Agora.iOS`](https://github.com/sbokatuk/Net.Agora.iOS)** — the raw Video iOS binding.
-- **`Net.Agora`** (this repository) — the façade (`Net.Agora.Video`, `Net.Agora.Video.Maui`) only.
-  It binds no native code itself.
+- **[`Net.Agora.Android`](https://github.com/sbokatuk/Net.Agora.Android)** — the raw Android
+  bindings (Video and Voice).
+- **[`Net.Agora.iOS`](https://github.com/sbokatuk/Net.Agora.iOS)** — the raw iOS bindings (Video
+  and Voice).
+- **`Net.Agora`** (this repository) — the façades (`Net.Agora.Video`, `Net.Agora.Video.Maui`,
+  `Net.Agora.Voice`, `Net.Agora.Voice.Maui`) only. It binds no native code itself.
 
-**This repository binds nothing for Video.** No `ApiDefinition.cs`, no `.aar`, no
-`AndroidLibrary`/`NativeReference` for it — `src/Net.Agora.Video` depends on
-`Net.Agora.Video.Android` / `Net.Agora.Video.iOS` the same way any consumer would, at an exact
-pinned version. For how *those* bindings work — the `AndroidMavenLibrary` mechanism, the
-hand-written iOS `ApiDefinition.cs` and why, the native SDK pins — see each repository's own
-README and `docs/`.
+**This repository binds nothing.** No `ApiDefinition.cs`, no `.aar`, no
+`AndroidLibrary`/`NativeReference` — each façade depends on its platform packages the same way any
+consumer would, at an exact pinned version. For how *those* bindings work — the
+`AndroidMavenLibrary` mechanism, the hand-written iOS `ApiDefinition.cs` and why, the native SDK
+pins — see each repository's own README and `docs/`.
 
 ## Layout
 
 ```
-Directory.Build.props        NetAgoraVideo*Version pins (platform packages), TFM bands, shared metadata
+Directory.Build.props        NetAgora<Product>*Version pins (platform packages), TFM bands, shared metadata
 global.json                  pins the .NET 9 SDK (the "net9 band")
 NuGet.config                  nuget.org + ./artifacts, so tests and the sample consume packed packages
 build/
@@ -33,16 +33,20 @@ build/
   BuildNugets.sh               packs Net.Agora.<Product> + .Maui -> ./artifacts (façade packages only)
   merge-packages.py            combines the two SDK-band passes into one package per id
 src/
-  Net.Agora.Video/              the cross-platform client
-  Net.Agora.Video.Maui/         the MAUI video view
+  Net.Agora.Video/              the cross-platform Video client
+  Net.Agora.Video.Maui/         the MAUI video view + platform glue
+  Net.Agora.Voice/              the cross-platform Voice client
+  Net.Agora.Voice.Maui/         the MAUI platform glue (no view — voice renders nothing)
 tests/
   Net.Agora.PackageTests/       asserts this repository's own packages' shape and pinned dependencies
-  Net.Agora.UnitTests/          the platform-neutral façade logic — AgoraVideoOptions.Validate,
-                                 the event-arg types — no device, no packages, no workload
-  Net.Agora.DeviceTests/        on-device smoke checks against the packed Net.Agora.Video package —
-                                 one project, an Android and an iOS head, same checks on both
+  Net.Agora.UnitTests/          the platform-neutral façade logic — options validation, the
+                                 event-arg types, for both products — no device, no packages, no workload
+  Net.Agora.DeviceTests/        on-device smoke checks against a packed façade package — one
+                                 project, an Android and an iOS head, same checks on both; the
+                                 product is selected with -p:AgoraDeviceProduct=Video|Voice
 samples/
   Net.Agora.Sample/             the MAUI sample app (Video)
+  Net.Agora.Sample.Voice/       the MAUI sample app (Voice)
 assets/                         the package icon
 Net.Agora.sln                   every project above except the sample, which consumes packed
                                  packages from ./artifacts and would break a plain restore
@@ -67,17 +71,18 @@ platform repos, copy their `.nupkg`s into this repository's `./artifacts`, then
 
 ## Packing (this repository)
 
-Requires `Net.Agora.Video.Android` and `Net.Agora.Video.iOS` to already be resolvable — either
-from nuget.org once published, or, for local testing before that, by copying their packed
-`.nupkg`s from the platform repos' own `artifacts/` into this repository's `artifacts/`
-(`NuGet.config`'s `local-artifacts` source):
+Requires the product's platform packages to already be resolvable — either from nuget.org once
+published, or, for local testing before that, by copying their packed `.nupkg`s from the platform
+repos' own `artifacts/` into this repository's `artifacts/` (`NuGet.config`'s `local-artifacts`
+source):
 
 ```sh
 # In sbokatuk/Net.Agora.Android and sbokatuk/Net.Agora.iOS:
-./build/BuildNugets.sh    # (iOS needs ./build/fetch-video.sh run first)
+./build/BuildNugets.sh    # (iOS needs ./build/fetch-video.sh and ./build/fetch-voice.sh run first)
 
 # Copy both repos' artifacts/*.nupkg into this repository's artifacts/, then:
 ./build/BuildNugets.sh video                      # version from Directory.Build.props
+./build/BuildNugets.sh voice                      # same, for the Voice packages
 ./build/BuildNugets.sh video 4.6.2.2-beta.4        # explicit version
 ```
 

@@ -1,43 +1,47 @@
 namespace Net.Agora.PackageTests;
 
 /// <summary>
-/// Asserts the shape of this repository's own packed NuGet packages: Net.Agora.Video (the
-/// cross-platform façade) and Net.Agora.Video.Maui. Runs against the packed .nupkg rather than
-/// the build output, so it catches packaging regressions the compiler cannot see.
+/// Asserts the shape of this repository's own packed NuGet packages: the cross-platform façades
+/// (Net.Agora.Video, Net.Agora.Voice) and their MAUI companions. Runs against the packed .nupkg
+/// rather than the build output, so it catches packaging regressions the compiler cannot see.
 ///
-/// Net.Agora.Video.Android and Net.Agora.Video.iOS are not built in this repository anymore —
-/// they are published from sbokatuk/Net.Agora.Android and sbokatuk/Net.Agora.iOS, which carry
-/// their own package-shape tests (native .aar/xcframework payload, their own target frameworks).
+/// The platform packages are not built in this repository — they are published from
+/// sbokatuk/Net.Agora.Android and sbokatuk/Net.Agora.iOS, which carry their own package-shape
+/// tests (native .aar/xcframework payload, their own target frameworks).
 /// </summary>
 public class PackageLayoutTests
 {
     [Theory]
-    [MemberData(nameof(Packages.AndroidFrameworks), MemberType = typeof(Packages))]
-    public void Video_carries_a_binding_assembly_for_every_android_target_framework(string tfm)
+    [MemberData(nameof(Packages.FacadeAndroidFrameworks), MemberType = typeof(Packages))]
+    public void Facade_carries_an_assembly_for_every_android_target_framework(string facade, string tfm)
     {
-        using var package = Packages.OpenPackage(Packages.Video);
+        using var package = Packages.OpenPackage(facade);
 
-        var expected = $"lib/{tfm}/{Packages.Video}.dll";
-        Assert.True(package.GetEntry(expected) is not null, $"{Packages.Video} is missing '{expected}'.");
+        var expected = $"lib/{tfm}/{facade}.dll";
+        Assert.True(package.GetEntry(expected) is not null, $"{facade} is missing '{expected}'.");
     }
 
     [SkippableTheory]
-    [MemberData(nameof(Packages.IosFrameworks), MemberType = typeof(Packages))]
-    public void Video_carries_a_binding_assembly_for_every_ios_target_framework(string tfm)
+    [MemberData(nameof(Packages.FacadeIosFrameworks), MemberType = typeof(Packages))]
+    public void Facade_carries_an_assembly_for_every_ios_target_framework(string facade, string tfm)
     {
-        Skip.IfNot(Packages.Exists(Packages.Video), $"{Packages.Video} was not packed");
+        Skip.IfNot(Packages.Exists(facade), $"{facade} was not packed");
 
-        using var package = Packages.OpenPackage(Packages.Video);
+        using var package = Packages.OpenPackage(facade);
 
-        var expected = $"lib/{tfm}/{Packages.Video}.dll";
-        Assert.True(package.GetEntry(expected) is not null, $"{Packages.Video} is missing '{expected}'.");
+        var expected = $"lib/{tfm}/{facade}.dll";
+        Assert.True(package.GetEntry(expected) is not null, $"{facade} is missing '{expected}'.");
     }
 
-    [Fact]
-    public void Metapackage_depends_on_the_platform_bindings_at_the_pinned_versions()
+    [Theory]
+    [MemberData(nameof(Packages.ProductRows), MemberType = typeof(Packages))]
+    public void Metapackage_depends_on_the_platform_bindings_at_the_pinned_versions(
+        string facade, string maui, string android, string ios)
     {
-        using var package = Packages.OpenPackage(Packages.Video);
-        var nuspec = Packages.ReadNuspec(package, Packages.Video);
+        _ = maui;
+
+        using var package = Packages.OpenPackage(facade);
+        var nuspec = Packages.ReadNuspec(package, facade);
 
         var dependencies = nuspec.Descendants()
             .Where(e => e.Name.LocalName == "dependency")
@@ -45,14 +49,14 @@ public class PackageLayoutTests
 
         var ids = dependencies.Select(d => d.Attribute("id")?.Value).ToHashSet();
 
-        Assert.Contains(Packages.VideoAndroid, ids);
-        Assert.Contains(Packages.VideoIOS, ids);
+        Assert.Contains(android, ids);
+        Assert.Contains(ios, ids);
 
         // Exact pin, not a floating range: both are separate repositories on their own release
         // cadence, and a floating reference would turn an unrelated upstream change into a build
         // break here rather than there — see Directory.Build.props.
         foreach (var dependency in dependencies.Where(d =>
-                     d.Attribute("id")?.Value is Packages.VideoAndroid or Packages.VideoIOS))
+                     d.Attribute("id")?.Value == android || d.Attribute("id")?.Value == ios))
         {
             var version = dependency.Attribute("version")?.Value;
             Assert.True(
@@ -63,19 +67,23 @@ public class PackageLayoutTests
         }
     }
 
-    [SkippableFact]
-    public void Maui_package_depends_on_the_metapackage()
+    [SkippableTheory]
+    [MemberData(nameof(Packages.ProductRows), MemberType = typeof(Packages))]
+    public void Maui_package_depends_on_the_metapackage(
+        string facade, string maui, string android, string ios)
     {
-        Skip.IfNot(Packages.Exists(Packages.VideoMaui), $"{Packages.VideoMaui} was not packed");
+        _ = (android, ios);
 
-        using var package = Packages.OpenPackage(Packages.VideoMaui);
-        var nuspec = Packages.ReadNuspec(package, Packages.VideoMaui);
+        Skip.IfNot(Packages.Exists(maui), $"{maui} was not packed");
+
+        using var package = Packages.OpenPackage(maui);
+        var nuspec = Packages.ReadNuspec(package, maui);
 
         var ids = nuspec.Descendants()
             .Where(e => e.Name.LocalName == "dependency")
             .Select(e => e.Attribute("id")?.Value)
             .ToHashSet();
 
-        Assert.Contains(Packages.Video, ids);
+        Assert.Contains(facade, ids);
     }
 }

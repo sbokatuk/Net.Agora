@@ -13,8 +13,10 @@ Built on [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) and
 This repository binds nothing itself — see [How this repository works](#how-this-repository-works).
 
 ```sh
-dotnet add package Net.Agora.Video.Maui   # MAUI apps: adds the video view
-dotnet add package Net.Agora.Video        # everything else
+dotnet add package Net.Agora.Video.Maui   # MAUI video apps: adds the video view
+dotnet add package Net.Agora.Video        # video, everything else
+dotnet add package Net.Agora.Voice.Maui   # MAUI voice-only apps
+dotnet add package Net.Agora.Voice        # voice-only, everything else
 ```
 
 ```csharp
@@ -26,26 +28,44 @@ client.UserJoined += (_, e) => client.SetRemoteView(e.Uid, RemoteView);
 await client.JoinAsync("my-channel");    // completes when the server confirms
 ```
 
+Voice-only apps get the same shape plus the voice essentials — speakerphone routing,
+who-is-speaking reports, remote mute state, token renewal — over native artifacts that carry no
+video codecs at all:
+
+```csharp
+var client = new AgoraVoiceOptions { AppId = "your-app-id", DefaultToSpeakerphone = true }.CreateClient();
+
+client.VolumeIndication += (_, e) => ShowSpeakers(e.Speakers);   // uid 0 is you
+client.EnableVolumeIndication(TimeSpan.FromMilliseconds(200));
+
+await client.JoinAsync("my-room");
+client.SetSpeakerphone(false);           // switch the live route mid-call
+```
+
+Pick one product per app: Video already carries the full audio surface, and the two products'
+native artifacts collide (same Java classes on Android, same `AgoraRtcKit` framework on iOS).
+
 ## Status
 
-This repository covers Agora's Video (RTC) SDK, wired end to end: the raw Android/iOS bindings
-(in the two sibling repositories above), this cross-platform client, the MAUI view, package tests,
-a sample app, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact state.
+This repository covers Agora's Video and Voice SDKs, wired end to end: the raw Android/iOS
+bindings (in the two sibling repositories above), the cross-platform clients, the MAUI packages,
+package tests, sample apps, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact state.
 
-| Product | Android | iOS | Cross-platform client | MAUI view |
+| Product | Android | iOS | Cross-platform client | MAUI |
 | --- | --- | --- | --- | --- |
-| Video | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ |
+| Video | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ view + glue |
+| Voice | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ glue (no view — voice renders nothing) |
 
 ## How this repository works
 
 Three repositories, each independently versioned and released:
 
 - **[`Net.Agora.Android`](https://github.com/sbokatuk/Net.Agora.Android)** — the raw Android
-  binding (`Agora.Rtc.*`, generated from `io.agora.rtc:full-rtc-basic`).
-- **[`Net.Agora.iOS`](https://github.com/sbokatuk/Net.Agora.iOS)** — the raw iOS binding
-  (`Net.Agora.Video.iOS.*`, hand-written against `AgoraRtcEngineKit`).
-- **`Net.Agora`** (this repository) — the façade. `Net.Agora.Video` depends on the two packages
-  above at an exact pinned version (`NetAgoraVideoAndroidVersion` / `NetAgoraVideoIosVersion` in
+  bindings (`Agora.Rtc.*`, generated from `io.agora.rtc:full-rtc-basic` / `voice-rtc-basic`).
+- **[`Net.Agora.iOS`](https://github.com/sbokatuk/Net.Agora.iOS)** — the raw iOS bindings
+  (`Net.Agora.Video.iOS.*` / `Net.Agora.Voice.iOS.*`, hand-written against `AgoraRtcEngineKit`).
+- **`Net.Agora`** (this repository) — the façades. Each façade package depends on its two platform
+  packages at an exact pinned version (`NetAgora<Product><Platform>Version` in
   `Directory.Build.props`) the same way any consumer would, restored from nuget.org. It contains no
   `ApiDefinition.cs`, no native artifact, no `AndroidLibrary`/`NativeReference` — see
   [docs/BUILD.md](docs/BUILD.md).

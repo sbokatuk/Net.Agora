@@ -5,9 +5,15 @@ set -euo pipefail
 # simulator and runs its checks. The app prints its verdict to stdout; this script turns that into
 # an exit code.
 #
-# Usage: run-simulator-tests.sh VERSION [TARGET_FRAMEWORK]
+# Usage: run-simulator-tests.sh VERSION [TARGET_FRAMEWORK] [PRODUCT]
+#
+# PRODUCT is Video (default) or Voice — which façade package the suite consumes. One run
+# exercises one product: their platform packages carry the same native artifacts, so a single
+# app holds one of them.
 
 VERSION="${1:?a package version is required}"
+PRODUCT="${3:-Video}"
+PRODUCT_LOWER="$(printf '%s' "${PRODUCT}" | tr '[:upper:]' '[:lower:]')"
 TARGET_FRAMEWORK="${2:-net10.0-ios26.0}"
 
 BUNDLE_ID="com.sbokatuk.agora.devicetests"
@@ -46,8 +52,9 @@ printf '{ "sdk": { "version": "%s", "rollForward": "latestFeature" } }\n' "${sdk
 # extraction there is exactly how a missing native framework kept reappearing after being fixed and
 # repacked in sbokatuk/Net.Agora.iOS during this suite's own development.
 . "${REPO_ROOT}/build/pins.sh"
-rm -rf "${HOME}/.nuget/packages/net.agora.video/${VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.${PRODUCT_LOWER}/${VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.video.ios/${NET_AGORA_VIDEO_IOS_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.voice.ios/${NET_AGORA_VOICE_IOS_VERSION}"
 
 # The app's own intermediate output has to go too, not just the NuGet cache. The iOS package's
 # native payload is extracted out of the package into obj/ and copied into the .app, and neither
@@ -63,6 +70,7 @@ echo "==> building device tests (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sd
 # verifies.
 ( cd "${SDK_DIR}" && dotnet build "${PROJECT}" \
     --configuration Debug \
+    -p:AgoraDeviceProduct="${PRODUCT}" \
     -p:AgoraPackageVersion="${VERSION}" \
     -p:AgoraDeviceTargetFramework="${TARGET_FRAMEWORK}" \
     -p:RuntimeIdentifier="${SIMULATOR_RID}" )
