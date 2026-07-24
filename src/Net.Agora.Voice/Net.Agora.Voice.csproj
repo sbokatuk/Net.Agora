@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The cross-platform API: joins an Agora RTC channel and publishes/subscribes audio with one
+    surface over Android's RtcEngine and iOS's AgoraRtcEngineKit — the audio-only sibling of
+    Net.Agora.Video, over platform packages that carry no video pipeline at all.
+
+    Deliberately no MAUI dependency, so plain .NET for Android and .NET for iOS apps can use this.
+    The MAUI conveniences live in Net.Agora.Voice.Maui.
+
+    No Mac Catalyst leg: Agora ships no maccatalyst slice for AgoraRtcKit.xcframework (ios-arm64
+    and simulator only) — see sbokatuk/Net.Agora.iOS's README.
+
+    Both platforms' target frameworks are listed together, which is why this can only be packed on
+    macOS — restoring the iOS leg needs the iOS workload. See build/BuildNugets.sh.
+
+    Net.Agora.Voice.Android and Net.Agora.Voice.iOS are NOT part of this repository — this package
+    depends on them the same way any consumer would, at an exact pinned version
+    (NetAgoraVoiceAndroidVersion / NetAgoraVoiceIosVersion in Directory.Build.props), restored from
+    nuget.org (or, for local development, from the ./artifacts folder source in NuGet.config once
+    those two repositories' own build/BuildNugets.sh has packed them there). See docs/BUILD.md.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+
+    <AssemblyName>Net.Agora.Voice</AssemblyName>
+    <RootNamespace>Net.Agora.Voice</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <VersionPrefix>$(AgoraVoiceIosVersion).$(AgoraBindingRevision)</VersionPrefix>
+  </PropertyGroup>
+
+  <!--
+    Platform code is picked per target framework rather than by the default glob, which would try
+    to compile the Android half into the iOS assembly.
+  -->
+  <ItemGroup>
+    <Compile Remove="Platforms/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <Compile Include="Platforms/Android/**/*.cs" />
+    <PackageReference Include="Net.Agora.Voice.Android" Version="[$(NetAgoraVoiceAndroidVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <Compile Include="Platforms/Apple/**/*.cs" />
+    <PackageReference Include="Net.Agora.Voice.iOS" Version="[$(NetAgoraVoiceIosVersion)]" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Net.Agora.Voice</PackageId>
+    <Title>Cross-platform .NET client for the Agora Voice SDK.</Title>
+    <Description>One API over the Agora Voice SDK for Android and iOS: join a channel and publish/subscribe audio with awaitable calls and ordinary .NET events — plus the voice essentials (speakerphone routing, who-is-speaking volume reports, remote mute state, token renewal) — instead of writing a per-platform adapter over a Java event-handler class and an Objective-C delegate. Pulls in the platform binding that matches whichever target framework you build; the native artifacts carry no video codecs. Use Net.Agora.Video instead if the app ever shows or sends video. For .NET MAUI apps, add Net.Agora.Voice.Maui.</Description>
+    <PackageTags>Agora;RTC;voice;audio;streaming;SDK;MAUI;Android;iOS;Binding</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+</Project>
