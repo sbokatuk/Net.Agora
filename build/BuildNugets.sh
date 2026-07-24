@@ -9,10 +9,10 @@ set -euo pipefail
 #
 # Usage:
 #   ./build/BuildNugets.sh video                            # version from Directory.Build.props
-#   ./build/BuildNugets.sh video 4.6.2.2-beta.4              # explicit package version
+#   ./build/BuildNugets.sh voice 4.6.2.2-beta.4              # explicit package version
 #
-# Only "video" is wired end to end today (see docs/BUILD.md for the other five products' status;
-# they have not been split into their own platform repositories yet).
+# "video" and "voice" are wired end to end today (see docs/BUILD.md for the other products'
+# status; they have not been split into their own platform repositories yet).
 #
 # Packages are written to ./artifacts.
 #
@@ -30,7 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PRODUCT="${1:-}"
 if [ -z "${PRODUCT}" ]; then
     echo "usage: $0 <product> [version]" >&2
-    echo "  known products: video" >&2
+    echo "  known products: video, voice" >&2
     exit 2
 fi
 
@@ -38,6 +38,10 @@ case "${PRODUCT}" in
     video)
         NAME="Video"
         DEFAULT_VERSION="${AGORA_VIDEO_PACKAGE_VERSION}"
+        ;;
+    voice)
+        NAME="Voice"
+        DEFAULT_VERSION="${AGORA_VOICE_PACKAGE_VERSION}"
         ;;
     *)
         echo "error: unknown product '${PRODUCT}'" >&2

@@ -83,7 +83,7 @@ jobs:
           {
             echo "### Published \`${{ needs.version.outputs.version }}\` to nuget.org"
             echo
-            for id in Net.Agora.Video.Maui Net.Agora.Video Net.Agora.Video.Android Net.Agora.Video.iOS; do
+            for id in Net.Agora.Video.Maui Net.Agora.Video Net.Agora.Voice.Maui Net.Agora.Voice; do
               echo "- [${id}](https://www.nuget.org/packages/${id}/${{ needs.version.outputs.version }})"
             done
           } >> "$GITHUB_STEP_SUMMARY"

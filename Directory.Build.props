@@ -15,16 +15,21 @@
     been observed lagging Maven Central by a point version.
   -->
   <PropertyGroup>
-    <NetAgoraVideoAndroidVersion>4.6.3.1</NetAgoraVideoAndroidVersion>
-    <NetAgoraVideoIosVersion>4.6.2.1</NetAgoraVideoIosVersion>
+    <NetAgoraVideoAndroidVersion>4.6.3.2</NetAgoraVideoAndroidVersion>
+    <NetAgoraVideoIosVersion>4.6.2.2</NetAgoraVideoIosVersion>
+    <NetAgoraVoiceAndroidVersion>4.6.3.2</NetAgoraVoiceAndroidVersion>
+    <NetAgoraVoiceIosVersion>4.6.2.2</NetAgoraVoiceIosVersion>
 
     <!--
-      This repository's own version tracks the iOS platform package's native version component —
-      the same convention sbokatuk/DatadogNet's facade uses, and for the same reason: it is
+      Each product's own version tracks its iOS platform package's native version component — the
+      same convention sbokatuk/DatadogNet's facade uses, and for the same reason: it is
       deliberately the line a reader is more likely to check first, since it is the one that lags.
+      The global VersionPrefix default is the Video line; the Voice projects override it with
+      theirs.
     -->
     <AgoraVideoIosVersion>4.6.2</AgoraVideoIosVersion>
-    <AgoraBindingRevision>1</AgoraBindingRevision>
+    <AgoraVoiceIosVersion>4.6.2</AgoraVoiceIosVersion>
+    <AgoraBindingRevision>2</AgoraBindingRevision>
     <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
   </PropertyGroup>
 

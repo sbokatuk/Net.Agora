@@ -33,3 +33,71 @@ public sealed class AgoraVideoErrorEventArgs(string message, int errorCode) : Ev
     /// <summary>The SDK's own error code — <c>AgoraErrorCode</c> on iOS, <c>Constants.ERR_*</c> on Android.</summary>
     public int ErrorCode { get; } = errorCode;
 }
+
+/// <summary>Raised for <see cref="IAgoraVideoClient.RemoteAudioMuted"/>.</summary>
+public sealed class AgoraRemoteAudioMuteEventArgs(uint uid, bool muted) : EventArgs
+{
+    /// <summary>The remote user who muted or unmuted their microphone.</summary>
+    public uint Uid { get; } = uid;
+
+    /// <summary>True when they muted, false when they unmuted.</summary>
+    public bool Muted { get; } = muted;
+}
+
+/// <summary>Raised for <see cref="IAgoraVideoClient.RemoteVideoMuted"/>.</summary>
+public sealed class AgoraRemoteVideoMuteEventArgs(uint uid, bool muted) : EventArgs
+{
+    /// <summary>The remote user who paused or resumed their camera.</summary>
+    public uint Uid { get; } = uid;
+
+    /// <summary>True when they paused, false when they resumed.</summary>
+    public bool Muted { get; } = muted;
+}
+
+/// <summary>One speaker's entry in a <see cref="AgoraVolumeIndicationEventArgs"/> report.</summary>
+/// <param name="Uid">The speaker's uid — 0 means this client in the local report.</param>
+/// <param name="Volume">0 (silent) to 255 (loudest).</param>
+public readonly record struct AgoraSpeakerVolume(uint Uid, int Volume);
+
+/// <summary>Raised for <see cref="IAgoraVideoClient.VolumeIndication"/>.</summary>
+public sealed class AgoraVolumeIndicationEventArgs(
+    IReadOnlyList<AgoraSpeakerVolume> speakers, int totalVolume) : EventArgs
+{
+    /// <summary>The loudest few speakers right now; empty when everyone is silent.</summary>
+    public IReadOnlyList<AgoraSpeakerVolume> Speakers { get; } = speakers;
+
+    /// <summary>The mixed volume of everyone, 0–255.</summary>
+    public int TotalVolume { get; } = totalVolume;
+}
+
+/// <summary>The connection's lifecycle state — Agora's <c>AgoraConnectionState</c> / <c>CONNECTION_STATE_*</c>.</summary>
+public enum AgoraConnectionState
+{
+    /// <summary>No channel and not trying to reach one.</summary>
+    Disconnected = 1,
+
+    /// <summary>A join is in flight.</summary>
+    Connecting = 2,
+
+    /// <summary>In the channel.</summary>
+    Connected = 3,
+
+    /// <summary>The SDK lost the channel and is re-establishing it on its own.</summary>
+    Reconnecting = 4,
+
+    /// <summary>The SDK gave up; a fresh <c>JoinAsync</c> is required.</summary>
+    Failed = 5,
+}
+
+/// <summary>Raised for <see cref="IAgoraVideoClient.ConnectionStateChanged"/>.</summary>
+public sealed class AgoraConnectionStateEventArgs(AgoraConnectionState state, int reason) : EventArgs
+{
+    /// <summary>The state the connection moved to.</summary>
+    public AgoraConnectionState State { get; } = state;
+
+    /// <summary>
+    /// Why — the SDK's own <c>CONNECTION_CHANGED_*</c> / <c>AgoraConnectionChangedReason</c> code,
+    /// carried raw: there are ~30 values and they matter mostly for logs.
+    /// </summary>
+    public int Reason { get; } = reason;
+}

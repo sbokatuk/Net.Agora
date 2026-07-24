@@ -1,4 +1,17 @@
+// One suite, two products: the same checks compile against the Video or the Voice façade (see
+// the csproj's AgoraDeviceProduct), so the aliases below are the only per-product spelling. The
+// few genuinely product-specific checks sit behind AGORA_VOICE.
+#if AGORA_VOICE
+using Net.Agora.Voice;
+using AgoraClient = Net.Agora.Voice.AgoraVoiceClient;
+using AgoraClientException = Net.Agora.Voice.AgoraVoiceException;
+using AgoraClientOptions = Net.Agora.Voice.AgoraVoiceOptions;
+#else
 using Net.Agora.Video;
+using AgoraClient = Net.Agora.Video.AgoraVideoClient;
+using AgoraClientException = Net.Agora.Video.AgoraVideoException;
+using AgoraClientOptions = Net.Agora.Video.AgoraVideoOptions;
+#endif
 
 namespace Net.Agora.DeviceTests;
 
@@ -24,8 +37,9 @@ public sealed record SmokeTest(string Name, Func<Task> Execute)
 /// <remarks>
 /// <b>This file is the repository's thesis stated as a test.</b> There is one copy of it, it uses
 /// nothing but the cross-platform API, and it runs unchanged on an Android emulator and an iOS
-/// simulator. If the façade did not actually unify Android's <c>RtcEngine</c> and iOS's
-/// <c>AgoraRtcEngineKit</c>, it could not compile for both heads — never mind pass on both.
+/// simulator — for the Video and the Voice façade alike. If a façade did not actually unify
+/// Android's <c>RtcEngine</c> and iOS's <c>AgoraRtcEngineKit</c>, it could not compile for both
+/// heads — never mind pass on both.
 /// <para>
 /// Unlike a Datadog-style SDK, nothing here can fully round-trip without a real, registered Agora
 /// App ID: joining a channel is a live signalling call to Agora's servers, not a local no-op. So
@@ -70,14 +84,19 @@ public static class SmokeTests
     public static Action<string> Reporter { get; set; } = _ => { };
 
     /// <summary>The client every check after construction shares. Set by <see cref="ConstructsTheClient"/>.</summary>
-    private static AgoraVideoClient? _client;
+    private static AgoraClient? _client;
 
     /// <summary>Every check, in the order they must run.</summary>
     public static SmokeTest[] All =>
     [
         new("a missing App ID is rejected before any native call", MissingAppIdIsRejected),
-        new("constructs the client", ConstructsTheClient),
-        new("enables and disables video and audio without throwing", EnablesAndDisablesMedia),
+        new("constructs a live-broadcasting broadcaster client", ConstructsTheClient),
+#if AGORA_VOICE
+        new("drives mute, speakerphone and volume indication without throwing", EnablesAndDisablesMedia),
+#else
+        new("drives the media, speakerphone and volume controls without throwing", EnablesAndDisablesMedia),
+#endif
+        new("an empty renew token is rejected, a shaped one is accepted", RenewsAToken),
         new("rejects a second join while one is pending", SecondJoinWhilePendingIsRejected),
         new("cancelling the token surfaces as OperationCanceledException", CancellationIsDistinctFromTimeout),
         new("an unregistered App ID fails the join within the configured timeout", JoinFailsWithinTimeout),
@@ -87,18 +106,18 @@ public static class SmokeTests
 
     private static void Report(string message) => Reporter(message);
 
-    private static AgoraVideoClient CreateClient(AgoraVideoOptions options)
+    private static AgoraClient CreateClient(AgoraClientOptions options)
     {
 #if ANDROID
-        return new AgoraVideoClient(
+        return new AgoraClient(
             options,
             AndroidContext ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set."));
 #else
-        return new AgoraVideoClient(options);
+        return new AgoraClient(options);
 #endif
     }
 
-    private static AgoraVideoClient Client =>
+    private static AgoraClient Client =>
         _client ?? throw new InvalidOperationException("the client has not been constructed yet.");
 
     private static void MissingAppIdIsRejected()
@@ -108,16 +127,23 @@ public static class SmokeTests
         // Net.Agora.UnitTests too; what only a device can prove is that both platform constructors
         // actually call it before creating the engine, rather than after.
         Throws<ArgumentException>(
-            () => CreateClient(new AgoraVideoOptions()),
+            () => CreateClient(new AgoraClientOptions()),
             "a missing App ID");
     }
 
     private static void ConstructsTheClient()
     {
-        _client = CreateClient(new AgoraVideoOptions
+        // Live-broadcasting with an explicit Broadcaster role, deliberately: that is the one
+        // combination where the constructor must call the engine's SetClientRole (the engine's
+        // own default in this profile is Audience), so constructing this way is what proves the
+        // role actually reaches the native side — the exact wiring that was once silently missing
+        // from the Video façade.
+        _client = CreateClient(new AgoraClientOptions
         {
             AppId = AppId,
             Timeout = JoinTimeout,
+            ChannelProfile = AgoraChannelProfile.LiveBroadcasting,
+            ClientRole = AgoraClientRole.Broadcaster,
         });
 
         Assert(!Client.IsJoined, "IsJoined is true before any join was attempted.");
@@ -129,6 +155,19 @@ public static class SmokeTests
         // None of these should throw even without camera/microphone permission granted — a defence
         // an app relies on to not crash for a permission it has not been granted yet. What is
         // proven here is that this façade does not add a throw of its own on top.
+#if AGORA_VOICE
+        Client.MuteLocalAudio(true);
+        Client.MuteLocalAudio(false);
+        Client.SetSpeakerphone(true);
+        Client.SetSpeakerphone(false);
+        Client.EnableVolumeIndication(TimeSpan.FromMilliseconds(200));
+
+        // The façade's own guard, distinct from the SDK's error code for the same input — see
+        // IAgoraVoiceClient.EnableVolumeIndication.
+        Throws<ArgumentOutOfRangeException>(
+            () => Client.EnableVolumeIndication(TimeSpan.Zero),
+            "a zero volume-indication interval");
+#else
         Client.EnableVideo();
         Client.DisableVideo();
         Client.EnableVideo();
@@ -136,6 +175,29 @@ public static class SmokeTests
         Client.MuteLocalAudio(false);
         Client.MuteLocalVideo(true);
         Client.MuteLocalVideo(false);
+        Client.SetSpeakerphone(true);
+        Client.SetSpeakerphone(false);
+        Client.EnableVolumeIndication(TimeSpan.FromMilliseconds(200));
+
+        // The façade's own guard, distinct from the SDK's error code for the same input — see
+        // IAgoraVideoClient.EnableVolumeIndication. SwitchCamera and StartPreview are deliberately
+        // not called: they are the first calls that touch the camera, which on a headless
+        // simulator raises a TCC permission prompt nobody is there to answer — the platform
+        // binding suites cover them.
+        Throws<ArgumentOutOfRangeException>(
+            () => Client.EnableVolumeIndication(TimeSpan.Zero),
+            "a zero volume-indication interval");
+#endif
+    }
+
+    private static void RenewsAToken()
+    {
+        // The empty case is the façade's own guard; the shaped case crosses into the engine,
+        // whose answer to a renewal outside a channel is its business — not throwing is the
+        // façade's contract.
+        Throws<ArgumentException>(() => Client.RenewToken(" "), "a whitespace renew token");
+
+        Client.RenewToken(AppId);
     }
 
     private static async Task SecondJoinWhilePendingIsRejected()
@@ -187,24 +249,50 @@ public static class SmokeTests
     private static async Task JoinFailsWithinTimeout()
     {
         // No cancellation token this time: whatever fails the join, it has to be either the SDK
-        // reporting an error (an unregistered App ID) or AgoraVideoClient's own timeout — the two
-        // reasons AgoraVideoException carries, as opposed to the OperationCanceledException the
+        // reporting an error (an unregistered App ID) or the façade's own timeout — the two
+        // reasons the façade's exception carries, as opposed to the OperationCanceledException the
         // previous check pinned to a caller-supplied token.
         var started = DateTimeOffset.UtcNow;
 
-        var error = await ThrowsAsync<AgoraVideoException>(
-            () => Client.JoinAsync(ChannelId),
-            "a join with an unregistered App ID");
+        // A failing join is also the one moment this credential-less suite can see the connection
+        // lifecycle move (idle → connecting, and onward to failed), so the event wiring is
+        // asserted here rather than in a check of its own.
+        var states = new List<AgoraConnectionState>();
+        void OnState(object? sender, AgoraConnectionStateEventArgs e)
+        {
+            lock (states)
+            {
+                states.Add(e.State);
+            }
+            Report($"connection state: {e.State} (reason {e.Reason})");
+        }
 
-        Report($"failed after {(DateTimeOffset.UtcNow - started).TotalSeconds:0.0}s: " +
-            $"[{error.ErrorCode}] {error.Message}");
+        Client.ConnectionStateChanged += OnState;
+        try
+        {
+            var error = await ThrowsAsync<AgoraClientException>(
+                () => Client.JoinAsync(ChannelId),
+                "a join with an unregistered App ID");
+
+            Report($"failed after {(DateTimeOffset.UtcNow - started).TotalSeconds:0.0}s: " +
+                $"[{error.ErrorCode}] {error.Message}");
+        }
+        finally
+        {
+            Client.ConnectionStateChanged -= OnState;
+        }
+
+        lock (states)
+        {
+            Assert(states.Count > 0, "no ConnectionStateChanged event was raised during a failing join.");
+        }
 
         Assert(!Client.IsJoined, "IsJoined is true after a join that should have failed.");
     }
 
     private static void LeaveAfterAFailedJoinIsANoOp()
     {
-        // AgoraVideoClient.JoinAsync already calls LeaveCore on the way out of a failed join (see
+        // JoinAsync already calls LeaveCore on the way out of a failed join (see
         // its catch block) — this proves calling Leave again on top of that, the way an app's error
         // handler naturally would, is still safe.
         Client.Leave();

@@ -29,6 +29,15 @@ public sealed partial class AgoraVideoClient
                 : Net.Agora.Video.iOS.AgoraChannelProfile.Communication,
         };
         _engine = AgoraRtcEngineKit.SharedEngine(config, _delegate);
+
+        // The role only exists in live-broadcasting, where the engine's default is Audience — a
+        // Broadcaster who skipped this would join silently unable to publish.
+        if (options.ChannelProfile == AgoraChannelProfile.LiveBroadcasting)
+        {
+            _engine.SetClientRole(options.ClientRole == AgoraClientRole.Audience
+                ? Net.Agora.Video.iOS.AgoraClientRole.Audience
+                : Net.Agora.Video.iOS.AgoraClientRole.Broadcaster);
+        }
     }
 
     /// <summary>Renders this device's own camera feed into <paramref name="view"/> — the SDK adds its own subview.</summary>
@@ -50,6 +59,41 @@ public sealed partial class AgoraVideoClient
 
     /// <inheritdoc cref="IAgoraVideoClient.MuteLocalVideo" />
     public void MuteLocalVideo(bool mute) => _engine.MuteLocalVideoStream(mute);
+
+    /// <inheritdoc cref="IAgoraVideoClient.StartPreview" />
+    public void StartPreview() => _engine.StartPreview();
+
+    /// <inheritdoc cref="IAgoraVideoClient.StopPreview" />
+    public void StopPreview() => _engine.StopPreview();
+
+    /// <inheritdoc cref="IAgoraVideoClient.SwitchCamera" />
+    public void SwitchCamera() => _engine.SwitchCamera();
+
+    /// <inheritdoc cref="IAgoraVideoClient.SetSpeakerphone" />
+    public void SetSpeakerphone(bool speakerphone)
+    {
+        // Two native calls behind one switch: setEnableSpeakerphone answers -3 (not ready) until
+        // the audio session exists (observed on the simulator suite in sbokatuk/Net.Agora.iOS),
+        // and setDefaultAudioRouteToSpeakerphone is what applies before one does.
+        if (IsJoined)
+        {
+            _engine.SetEnableSpeakerphone(speakerphone);
+        }
+        else
+        {
+            _engine.SetDefaultAudioRouteToSpeakerphone(speakerphone);
+        }
+    }
+
+    /// <inheritdoc cref="IAgoraVideoClient.RenewToken" />
+    public void RenewToken(string token)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        _engine.RenewToken(token);
+    }
+
+    private void EnableVolumeIndicationCore(int intervalMilliseconds) =>
+        _engine.EnableAudioVolumeIndication(intervalMilliseconds, smooth: 3, reportVad: false);
 
     private void JoinCore(string channelId) =>
         _engine.JoinChannel(_options.Token, channelId, null, _options.Uid, joinSuccess: null);
@@ -77,6 +121,28 @@ public sealed partial class AgoraVideoClient
 
         public override void DidOfflineOfUid(AgoraRtcEngineKit engine, nuint uid, AgoraUserOfflineReason reason) =>
             owner.RaiseUserOffline((uint)uid);
+
+        public override void DidAudioMuted(AgoraRtcEngineKit engine, bool muted, nuint uid) =>
+            owner.RaiseRemoteAudioMuted((uint)uid, muted);
+
+        public override void DidVideoMuted(AgoraRtcEngineKit engine, bool muted, nuint uid) =>
+            owner.RaiseRemoteVideoMuted((uint)uid, muted);
+
+        public override void ReportAudioVolumeIndication(
+            AgoraRtcEngineKit engine, AgoraRtcAudioVolumeInfo[] speakers, nint totalVolume)
+        {
+            var mapped = speakers is { Length: > 0 }
+                ? Array.ConvertAll(speakers, s => new AgoraSpeakerVolume((uint)s.Uid, (int)s.Volume))
+                : [];
+            owner.RaiseVolumeIndication(mapped, (int)totalVolume);
+        }
+
+        public override void ConnectionChangedToState(
+            AgoraRtcEngineKit engine, Net.Agora.Video.iOS.AgoraConnectionState state, nint reason) =>
+            owner.RaiseConnectionStateChanged((AgoraConnectionState)(long)state, (int)reason);
+
+        public override void TokenPrivilegeWillExpire(AgoraRtcEngineKit engine, string token) =>
+            owner.RaiseTokenPrivilegeWillExpire();
 
         public override void DidOccurError(AgoraRtcEngineKit engine, Net.Agora.Video.iOS.AgoraErrorCode errorCode) =>
             owner.RaiseError($"Agora error {errorCode}", (int)errorCode);

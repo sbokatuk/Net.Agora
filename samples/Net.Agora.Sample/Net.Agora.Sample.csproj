@@ -45,7 +45,7 @@
       "build/BuildNugets.sh video" works; override with -p:AgoraVideoPackageVersion=... to test a
       specific build.
     -->
-    <AgoraVideoPackageVersion Condition=" '$(AgoraVideoPackageVersion)' == '' ">$(AgoraVideoVersion)</AgoraVideoPackageVersion>
+    <AgoraVideoPackageVersion Condition=" '$(AgoraVideoPackageVersion)' == '' ">$(VersionPrefix)</AgoraVideoPackageVersion>
   </PropertyGroup>
 
   <ItemGroup>

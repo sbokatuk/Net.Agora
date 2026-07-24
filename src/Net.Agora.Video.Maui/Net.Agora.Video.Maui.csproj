@@ -41,7 +41,14 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <!--
+      $(Version) first, so an explicit -p:Version=... (what BuildNugets.sh passes — including
+      beta suffixes) pins the dependency to the façade being packed alongside. $(Version) is only
+      non-empty at evaluation time when passed like that, so a plain build (e.g. of the solution)
+      falls through to $(VersionPrefix) rather than producing an invalid empty pin '[]'.
+    -->
     <AgoraVideoDependencyVersion Condition=" '$(AgoraVideoDependencyVersion)' == '' ">$(Version)</AgoraVideoDependencyVersion>
+    <AgoraVideoDependencyVersion Condition=" '$(AgoraVideoDependencyVersion)' == '' ">$(VersionPrefix)</AgoraVideoDependencyVersion>
   </PropertyGroup>
 
   <ItemGroup>

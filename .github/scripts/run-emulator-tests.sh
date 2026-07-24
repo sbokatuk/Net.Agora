@@ -8,9 +8,15 @@ set -euo pipefail
 # Assumes an emulator is already booted and visible to adb - in CI that is
 # reactivecircus/android-emulator-runner, locally it is whatever you started yourself.
 #
-# Usage: run-emulator-tests.sh VERSION [TARGET_FRAMEWORK]
+# Usage: run-emulator-tests.sh VERSION [TARGET_FRAMEWORK] [PRODUCT]
+#
+# PRODUCT is Video (default) or Voice — which façade package the suite consumes. One run
+# exercises one product: their platform packages carry the same native artifacts, so a single
+# app holds one of them.
 
 VERSION="${1:?a package version is required}"
+PRODUCT="${3:-Video}"
+PRODUCT_LOWER="$(printf '%s' "${PRODUCT}" | tr '[:upper:]' '[:lower:]')"
 TARGET_FRAMEWORK="${2:-net10.0-android36.0}"
 
 PACKAGE_NAME="com.sbokatuk.agora.devicetests"
@@ -58,8 +64,9 @@ printf '{ "sdk": { "version": "%s", "rollForward": "latestFeature" } }\n' "${sdk
 # run-simulator-tests.sh, where a stale extraction of the iOS platform package's cache was exactly
 # how a missing native framework kept reappearing after being fixed and repacked.
 . "${REPO_ROOT}/build/pins.sh"
-rm -rf "${HOME}/.nuget/packages/net.agora.video/${VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.${PRODUCT_LOWER}/${VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.video.android/${NET_AGORA_VIDEO_ANDROID_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.voice.android/${NET_AGORA_VOICE_ANDROID_VERSION}"
 
 rm -rf "${REPO_ROOT}/tests/Net.Agora.DeviceTests/obj" \
        "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin"
@@ -70,6 +77,7 @@ echo "==> building device tests (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sd
 # single check runs. Debug also skips the R8 shrinking this app has to avoid anyway.
 ( cd "${SDK_DIR}" && dotnet build "${PROJECT}" \
     --configuration Debug \
+    -p:AgoraDeviceProduct="${PRODUCT}" \
     -p:AgoraPackageVersion="${VERSION}" \
     -p:AgoraDeviceTargetFramework="${TARGET_FRAMEWORK}" \
     -p:RuntimeIdentifier="${DEVICE_RID}" \

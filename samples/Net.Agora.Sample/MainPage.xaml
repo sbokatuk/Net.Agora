@@ -22,10 +22,28 @@
             <agora:AgoraVideoView x:Name="RemoteView" Grid.Column="1" />
         </Grid>
 
-        <HorizontalStackLayout Grid.Row="2" Spacing="8" HorizontalOptions="Center">
-            <Button x:Name="JoinButton" Text="Join" Clicked="OnJoinClicked" />
-            <Button x:Name="LeaveButton" Text="Leave" Clicked="OnLeaveClicked" IsEnabled="False" />
-        </HorizontalStackLayout>
+        <VerticalStackLayout Grid.Row="2" Spacing="8">
+            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                <Button x:Name="JoinButton" Text="Join" Clicked="OnJoinClicked" />
+                <Button x:Name="LeaveButton" Text="Leave" Clicked="OnLeaveClicked" IsEnabled="False" />
+                <Button x:Name="SwitchCameraButton" Text="Flip" Clicked="OnSwitchCameraClicked" IsEnabled="False" />
+            </HorizontalStackLayout>
+            <HorizontalStackLayout Spacing="24" HorizontalOptions="Center">
+                <HorizontalStackLayout Spacing="4">
+                    <Label Text="Mute" VerticalOptions="Center" />
+                    <Switch x:Name="MuteSwitch" Toggled="OnMuteToggled" IsEnabled="False" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <Label Text="Camera off" VerticalOptions="Center" />
+                    <Switch x:Name="CameraOffSwitch" Toggled="OnCameraOffToggled" IsEnabled="False" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <Label Text="Speaker" VerticalOptions="Center" />
+                    <Switch x:Name="SpeakerSwitch" Toggled="OnSpeakerToggled" />
+                </HorizontalStackLayout>
+            </HorizontalStackLayout>
+            <Label x:Name="SpeakersLabel" Text="nobody is speaking" FontAttributes="Italic" HorizontalOptions="Center" />
+        </VerticalStackLayout>
 
         <ScrollView Grid.Row="3" x:Name="StatusScroll" HeightRequest="120">
             <Label x:Name="StatusLabel" FontFamily="OpenSansRegular" FontSize="12" />

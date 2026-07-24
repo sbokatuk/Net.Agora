@@ -31,6 +31,21 @@ public sealed partial class AgoraVideoClient : IAgoraVideoClient
     public event EventHandler<AgoraUserEventArgs>? UserOffline;
 
     /// <inheritdoc />
+    public event EventHandler<AgoraRemoteAudioMuteEventArgs>? RemoteAudioMuted;
+
+    /// <inheritdoc />
+    public event EventHandler<AgoraRemoteVideoMuteEventArgs>? RemoteVideoMuted;
+
+    /// <inheritdoc />
+    public event EventHandler<AgoraVolumeIndicationEventArgs>? VolumeIndication;
+
+    /// <inheritdoc />
+    public event EventHandler<AgoraConnectionStateEventArgs>? ConnectionStateChanged;
+
+    /// <inheritdoc />
+    public event EventHandler? TokenPrivilegeWillExpire;
+
+    /// <inheritdoc />
     public event EventHandler<AgoraVideoErrorEventArgs>? Error;
 
     /// <inheritdoc />
@@ -105,6 +120,17 @@ public sealed partial class AgoraVideoClient : IAgoraVideoClient
     }
 
     /// <inheritdoc />
+    public void EnableVolumeIndication(TimeSpan interval)
+    {
+        // Agora's floor: the engine answers -2 (invalid argument) to anything under 10 ms, and
+        // its own documented minimum useful cadence is 200 ms. Validated here so the caller gets
+        // an ArgumentOutOfRangeException naming the parameter rather than an SDK error code.
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(interval, TimeSpan.Zero);
+
+        EnableVolumeIndicationCore((int)interval.TotalMilliseconds);
+    }
+
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)
@@ -137,6 +163,20 @@ public sealed partial class AgoraVideoClient : IAgoraVideoClient
     private void RaiseUserJoined(uint uid) => UserJoined?.Invoke(this, new AgoraUserEventArgs(uid));
 
     private void RaiseUserOffline(uint uid) => UserOffline?.Invoke(this, new AgoraUserEventArgs(uid));
+
+    private void RaiseRemoteAudioMuted(uint uid, bool muted) =>
+        RemoteAudioMuted?.Invoke(this, new AgoraRemoteAudioMuteEventArgs(uid, muted));
+
+    private void RaiseRemoteVideoMuted(uint uid, bool muted) =>
+        RemoteVideoMuted?.Invoke(this, new AgoraRemoteVideoMuteEventArgs(uid, muted));
+
+    private void RaiseVolumeIndication(IReadOnlyList<AgoraSpeakerVolume> speakers, int totalVolume) =>
+        VolumeIndication?.Invoke(this, new AgoraVolumeIndicationEventArgs(speakers, totalVolume));
+
+    private void RaiseConnectionStateChanged(AgoraConnectionState state, int reason) =>
+        ConnectionStateChanged?.Invoke(this, new AgoraConnectionStateEventArgs(state, reason));
+
+    private void RaiseTokenPrivilegeWillExpire() => TokenPrivilegeWillExpire?.Invoke(this, EventArgs.Empty);
 
     /// <summary>Called by the platform half when the SDK reports an error.</summary>
     private void RaiseError(string message, int errorCode)

@@ -19,6 +19,24 @@ public static class Packages
     public const string VideoIOS = "Net.Agora.Video.iOS";
     public const string Video = "Net.Agora.Video";
     public const string VideoMaui = "Net.Agora.Video.Maui";
+    public const string VoiceAndroid = "Net.Agora.Voice.Android";
+    public const string VoiceIOS = "Net.Agora.Voice.iOS";
+    public const string Voice = "Net.Agora.Voice";
+    public const string VoiceMaui = "Net.Agora.Voice.Maui";
+
+    /// <summary>
+    /// One row per product this repository packs: the façade package, its MAUI companion, and the
+    /// two platform packages the façade must pin. Pinned rather than discovered so a product
+    /// silently dropped from the pack is a failure, not something the tests adapt to.
+    /// </summary>
+    public static readonly (string Facade, string Maui, string Android, string Ios)[] Products =
+    [
+        (Video, VideoMaui, VideoAndroid, VideoIOS),
+        (Voice, VoiceMaui, VoiceAndroid, VoiceIOS),
+    ];
+
+    public static IEnumerable<object[]> ProductRows =>
+        Products.Select(p => new object[] { p.Facade, p.Maui, p.Android, p.Ios });
 
     /// <summary>
     /// Target frameworks Net.Agora.Video / Net.Agora.Video.Maui must carry, one per SDK band pass.
@@ -41,6 +59,14 @@ public static class Packages
 
     public static IEnumerable<object[]> IosFrameworks =>
         IosTargetFrameworks.Select(tfm => new object[] { tfm });
+
+    /// <summary>Every (façade package, target framework) pair, per platform axis.</summary>
+    public static IEnumerable<object[]> FacadeAndroidFrameworks =>
+        Products.SelectMany(p => AndroidTargetFrameworks.Select(tfm => new object[] { p.Facade, tfm }));
+
+    /// <inheritdoc cref="FacadeAndroidFrameworks" />
+    public static IEnumerable<object[]> FacadeIosFrameworks =>
+        Products.SelectMany(p => IosTargetFrameworks.Select(tfm => new object[] { p.Facade, tfm }));
 
     public static string ArtifactsDirectory { get; } = ResolveArtifactsDirectory();
 

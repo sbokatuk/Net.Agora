@@ -123,10 +123,13 @@ jobs:
 
             echo "## Packages"
             echo
-            echo "A pure façade over Net.Agora.Video.Android \`${NET_AGORA_VIDEO_ANDROID_VERSION}\`"
-            echo "([sbokatuk/Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android)) and"
-            echo "Net.Agora.Video.iOS \`${NET_AGORA_VIDEO_IOS_VERSION}\`"
-            echo "([sbokatuk/Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS)) — this"
+            echo "Pure façades over the platform packages — Video:"
+            echo "Net.Agora.Video.Android \`${NET_AGORA_VIDEO_ANDROID_VERSION}\` /"
+            echo "Net.Agora.Video.iOS \`${NET_AGORA_VIDEO_IOS_VERSION}\`; Voice:"
+            echo "Net.Agora.Voice.Android \`${NET_AGORA_VOICE_ANDROID_VERSION}\` /"
+            echo "Net.Agora.Voice.iOS \`${NET_AGORA_VOICE_IOS_VERSION}\`"
+            echo "([sbokatuk/Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android),"
+            echo "[sbokatuk/Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS)) — this"
             echo "repository binds nothing itself. Targeting .NET 8, .NET 9 and .NET 10. No Mac"
             echo "Catalyst — see docs/BUILD.md."
             echo
@@ -134,10 +137,14 @@ jobs:
             echo "| --- | --- | --- |"
             echo "| \`Net.Agora.Video.Maui\` | Android, iOS | [${VERSION}](https://www.nuget.org/packages/Net.Agora.Video.Maui/${VERSION}) |"
             echo "| \`Net.Agora.Video\` | Android, iOS | [${VERSION}](https://www.nuget.org/packages/Net.Agora.Video/${VERSION}) |"
+            echo "| \`Net.Agora.Voice.Maui\` | Android, iOS | [${VERSION}](https://www.nuget.org/packages/Net.Agora.Voice.Maui/${VERSION}) |"
+            echo "| \`Net.Agora.Voice\` | Android, iOS | [${VERSION}](https://www.nuget.org/packages/Net.Agora.Voice/${VERSION}) |"
             echo
             echo "\`\`\`"
-            echo "dotnet add package Net.Agora.Video.Maui --version ${VERSION}   # MAUI apps"
-            echo "dotnet add package Net.Agora.Video --version ${VERSION}        # everything else"
+            echo "dotnet add package Net.Agora.Video.Maui --version ${VERSION}   # MAUI video apps"
+            echo "dotnet add package Net.Agora.Video --version ${VERSION}        # video, everything else"
+            echo "dotnet add package Net.Agora.Voice.Maui --version ${VERSION}   # MAUI voice-only apps"
+            echo "dotnet add package Net.Agora.Voice --version ${VERSION}        # voice-only, everything else"
             echo "\`\`\`"
           } > release-notes.md
 
