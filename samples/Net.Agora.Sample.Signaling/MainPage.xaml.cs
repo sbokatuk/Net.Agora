@@ -68,11 +68,27 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private void OnLogoutClicked(object sender, EventArgs e)
+    private async void OnLogoutClicked(object sender, EventArgs e)
     {
+        // Unsubscribe first — logging out would drop the subscription anyway, but a real app
+        // leaves rooms it is done with while staying logged in, so the call is worth showing.
+        try
+        {
+            if (_client is not null && _channel is not null)
+            {
+                await _client.UnsubscribeAsync(_channel);
+                Append($"unsubscribed from {_channel}");
+            }
+        }
+        catch (AgoraSignalingException exception)
+        {
+            Append($"unsubscribe failed: {exception.Message}");
+        }
+
         _client?.Logout();
         _client?.Dispose();
         _client = null;
+        _channel = null;
         Append("logged out");
         SetLoggedIn(false);
     }
