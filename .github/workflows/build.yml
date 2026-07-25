@@ -198,11 +198,23 @@ jobs:
           # scratch global.json as the pack/e2e jobs need.
           dotnet-version: 9.0.x
 
-      - name: Install the ${{ matrix.platform }} workload
+      - name: Install workloads
         # The samples are MAUI apps, so the maui-<platform> workload is required on top of the raw
         # platform one - this is what makes the check exercise the .Maui packages the device tests
         # deliberately skip.
-        run: dotnet workload install ${{ matrix.platform }} maui-${{ matrix.platform }}
+        #
+        # The samples multi-target BOTH platforms' target frameworks, and `dotnet build -f` still
+        # restores every one of them - so restore needs every platform's workload installed, not
+        # just the one being built (NETSDK1147 otherwise). On macOS that means all four. On Linux
+        # the iOS workload does not exist at all (NETSDK1178, "build the project on another
+        # operating system"), which no workload install can fix - the sample csprojs instead drop
+        # the iOS target frameworks from TargetFrameworks when restoring on Linux.
+        run: |
+          if [ "${{ matrix.platform }}" = "ios" ]; then
+            dotnet workload install ios android maui-ios maui-android
+          else
+            dotnet workload install android maui-android
+          fi
 
       - name: Set up the Android SDK
         if: ${{ matrix.platform == 'android' }}
