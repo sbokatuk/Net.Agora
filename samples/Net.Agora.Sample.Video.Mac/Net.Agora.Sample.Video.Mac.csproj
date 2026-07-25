@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Native AppKit sample (not MAUI — MAUI has no net-macos head) driving the cross-platform
+    Net.Agora.Video client on macOS. It consumes the packed Net.Agora.Video façade from artifacts/
+    (see NuGet.config), which pulls in Net.Agora.Video.Mac transitively — so it exercises the macOS
+    leg of the façade exactly as a native macOS app would.
+
+    Pinned macOS platform versions (…-macos15.0), never bare net*-macos: a bare TFM floats the
+    platform version to the workload's newest macOS SDK, which then demands that exact Xcode and can
+    diverge from the packed assets (CS1705). See src/Net.Agora.Video/Net.Agora.Video.csproj.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0-macos15.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Net.Agora.Sample.Video.Mac</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <CheckEolWorkloads>false</CheckEolWorkloads>
+
+    <ApplicationId>com.sbokatuk.agora.sample.video.mac</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
+
+    <!-- Defaults to the façade's own version so a plain build after "BuildNugets.sh video" works. -->
+    <AgoraVideoPackageVersion Condition=" '$(AgoraVideoPackageVersion)' == '' ">$(VersionPrefix)</AgoraVideoPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      The cross-platform façade, not the .Maui companion (which is MAUI-only) and not the raw
+      Net.Agora.Video.Mac binding (that is what the sibling sbokatuk/Net.Agora.Mac sample uses).
+      Net.Agora.Video for net*-macos brings Net.Agora.Video.Mac with it. Exact version, in brackets
+      — a bare version is a minimum to NuGet, so a build missing from artifacts/ would silently
+      resolve from nuget.org instead of failing the restore.
+    -->
+    <PackageReference Include="Net.Agora.Video" Version="[$(AgoraVideoPackageVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Info.plist" LogicalName="Info.plist" />
+  </ItemGroup>
+
+</Project>

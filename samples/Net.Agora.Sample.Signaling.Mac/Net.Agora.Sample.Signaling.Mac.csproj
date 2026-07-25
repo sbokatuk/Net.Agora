@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Native AppKit sample driving the cross-platform Net.Agora.Signaling client on macOS. Consumes
+    the packed Net.Agora.Signaling façade from artifacts/ (which pulls in Net.Agora.Signaling.Mac),
+    exercising the macOS leg of the façade. Pinned macOS platform versions — see the Video.Mac
+    sample for why.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0-macos15.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Net.Agora.Sample.Signaling.Mac</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <CheckEolWorkloads>false</CheckEolWorkloads>
+
+    <ApplicationId>com.sbokatuk.agora.sample.signaling.mac</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
+
+    <!-- Signaling is on its own native version line (RTM 2.2.x), not the RTC VersionPrefix. -->
+    <AgoraSignalingPackageVersion Condition=" '$(AgoraSignalingPackageVersion)' == '' ">$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)</AgoraSignalingPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Net.Agora.Signaling" Version="[$(AgoraSignalingPackageVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Info.plist" LogicalName="Info.plist" />
+  </ItemGroup>
+
+</Project>
