@@ -1,0 +1,25 @@
+# Release tracks: which products version and publish together, and the git-tag prefix that
+# releases each. Source of truth read by build/resolve-track.sh (tag -> track), BuildNugets.sh
+# --track (pack only a track), and .github/workflows/release.yml.
+#
+# Why tracks exist: the products sit on unrelated native version lines (RTC 4.6.x, RTM 2.2.x,
+# Chat 1.4.x, Whiteboard 2.16.x, Fastboard 1.4.x), so one tag publishing all of them stamps a
+# release note that makes sense for none. A tag names one track; the release builds and publishes
+# only that track (each product = its cross-platform package plus, where one exists, its .Maui).
+#
+# Tag scheme: the main RTC track uses a bare "v" (v4.6.2.4); every other track prefixes its
+# product name (chat-v1.4.0.1). resolve-track.sh matches the longest prefix, so "v" never
+# swallows "chat-v".
+#
+# No IoT track: Agora ships no iOS IoT SDK, so there is no cross-platform IoT client — it exists
+# only as Net.Agora.IoT.Android in the Android repository.
+#
+# Columns are single-tab-separated. The third is space-separated product names (the argument
+# BuildNugets.sh takes).
+#
+# track	tag-prefix	products
+rtc	v	video voice
+signaling	signaling-v	signaling
+chat	chat-v	chat
+whiteboard	whiteboard-v	whiteboard
+fastboard	fastboard-v	fastboard

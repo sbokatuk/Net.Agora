@@ -15,9 +15,9 @@
     been observed lagging Maven Central by a point version.
   -->
   <PropertyGroup>
-    <NetAgoraVideoAndroidVersion>4.6.3.3</NetAgoraVideoAndroidVersion>
+    <NetAgoraVideoAndroidVersion>4.6.3.4</NetAgoraVideoAndroidVersion>
     <NetAgoraVideoIosVersion>4.6.2.4</NetAgoraVideoIosVersion>
-    <NetAgoraVoiceAndroidVersion>4.6.3.3</NetAgoraVoiceAndroidVersion>
+    <NetAgoraVoiceAndroidVersion>4.6.3.4</NetAgoraVoiceAndroidVersion>
     <NetAgoraVoiceIosVersion>4.6.2.4</NetAgoraVoiceIosVersion>
     <NetAgoraSignalingAndroidVersion>2.2.6.1</NetAgoraSignalingAndroidVersion>
     <NetAgoraSignalingIosVersion>2.2.6.1</NetAgoraSignalingIosVersion>

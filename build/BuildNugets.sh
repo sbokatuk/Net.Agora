@@ -8,8 +8,14 @@ set -euo pipefail
 # which is where you'd copy their own build/BuildNugets.sh output for local testing.
 #
 # Usage:
-#   ./build/BuildNugets.sh video                         # the product's own version from Directory.Build.props
+#   ./build/BuildNugets.sh video                         # one product, its own version from Directory.Build.props
 #   ./build/BuildNugets.sh voice --suffix beta.12.34     # same, with a prerelease suffix appended
+#   ./build/BuildNugets.sh --track rtc                   # every product on a release track (rtc = video + voice)
+#   ./build/BuildNugets.sh --track chat --suffix beta.1  # both
+#
+# A product is its cross-platform package and, where one exists, its .Maui companion. --track packs
+# every product on one release track (see build/tracks.tsv), which is how a release publishes a
+# whole track from one tag; a bare product name packs just that one.
 #
 # Each product packs at its own <VersionPrefix>: the products sit on independent native version
 # lines (RTC 4.6.x, RTM 2.2.x), so no single version can be stamped across them — which is why
@@ -28,50 +34,62 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/pins.sh"
 
-PRODUCT="${1:-}"
-if [ -z "${PRODUCT}" ]; then
-    echo "usage: $0 <product> [--suffix <prerelease>]" >&2
+PRODUCTS=""
+TRACK=""
+SUFFIX=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --track)
+            TRACK="${2:?--track needs a value}"
+            shift 2
+            ;;
+        --suffix)
+            SUFFIX="${2:?--suffix needs a value}"
+            shift 2
+            ;;
+        -*)
+            echo "error: unknown option '$1'" >&2
+            exit 2
+            ;;
+        *)
+            PRODUCTS="${PRODUCTS} $1"
+            shift
+            ;;
+    esac
+done
+
+if [ -n "${TRACK}" ]; then
+    if [ -n "${PRODUCTS# }" ]; then
+        echo "error: pass a product name or --track, not both" >&2
+        exit 2
+    fi
+    PRODUCTS="$(awk -F'\t' -v t="${TRACK}" '$1 == t { print $3 }' "${SCRIPT_DIR}/tracks.tsv")"
+    if [ -z "${PRODUCTS}" ]; then
+        echo "error: unknown track '${TRACK}' (not in build/tracks.tsv)" >&2
+        exit 2
+    fi
+    echo "==> track '${TRACK}':${PRODUCTS# }" >&2
+fi
+
+if [ -z "${PRODUCTS# }" ]; then
+    echo "usage: $0 <product> [--suffix <prerelease>]   |   $0 --track <track> [--suffix ...]" >&2
     echo "  known products: video, voice, signaling, chat, whiteboard, fastboard" >&2
+    echo "  known tracks:   rtc, signaling, chat, whiteboard, fastboard (see build/tracks.tsv)" >&2
     exit 2
 fi
 
-SUFFIX=""
-case "${2:-}" in
-    "") ;;
-    --suffix)
-        SUFFIX="${3:?--suffix needs a value}"
-        ;;
-    *)
-        echo "error: unknown argument '$2' (a single version cannot be stamped across" >&2
-        echo "       independent version lines — use --suffix for prereleases)" >&2
-        exit 2
-        ;;
-esac
-
-case "${PRODUCT}" in
-    video)
-        NAME="Video"
-        ;;
-    voice)
-        NAME="Voice"
-        ;;
-    signaling)
-        NAME="Signaling"
-        ;;
-    chat)
-        NAME="Chat"
-        ;;
-    whiteboard)
-        NAME="Whiteboard"
-        ;;
-    fastboard)
-        NAME="Fastboard"
-        ;;
-    *)
-        echo "error: unknown product '${PRODUCT}'" >&2
-        exit 1
-        ;;
-esac
+# Maps a product name to the PascalCase segment its projects use.
+product_name() {
+    case "$1" in
+        video)      echo Video ;;
+        voice)      echo Voice ;;
+        signaling)  echo Signaling ;;
+        chat)       echo Chat ;;
+        whiteboard) echo Whiteboard ;;
+        fastboard)  echo Fastboard ;;
+        *)          echo "error: unknown product '$1'" >&2; return 1 ;;
+    esac
+}
 
 ROOT="${AGORA_REPO_ROOT}"
 OUTPUT="${ROOT}/artifacts"
@@ -134,13 +152,18 @@ pack_and_merge() {
     rm -rf "${PASS1_DIR}" "${PASS2_DIR}"
 }
 
-# Order matters: Net.Agora.<Name>.Maui depends on Net.Agora.<Name>, which must already be in
-# artifacts/ for its restore to resolve the just-packed version rather than a stale or published
-# one — see the PackageReference version pins in each .csproj.
-pack_and_merge "${ROOT}/src/Net.Agora.${NAME}/Net.Agora.${NAME}.csproj"
-if [ -f "${ROOT}/src/Net.Agora.${NAME}.Maui/Net.Agora.${NAME}.Maui.csproj" ]; then
-    pack_and_merge "${ROOT}/src/Net.Agora.${NAME}.Maui/Net.Agora.${NAME}.Maui.csproj"
-fi
+# One or more products (a --track expands to several). For each, order matters:
+# Net.Agora.<Name>.Maui depends on Net.Agora.<Name>, which must already be in artifacts/ for its
+# restore to resolve the just-packed version rather than a stale or published one — see the
+# PackageReference version pins in each .csproj.
+for product in ${PRODUCTS}; do
+    NAME="$(product_name "${product}")"
+
+    pack_and_merge "${ROOT}/src/Net.Agora.${NAME}/Net.Agora.${NAME}.csproj"
+    if [ -f "${ROOT}/src/Net.Agora.${NAME}.Maui/Net.Agora.${NAME}.Maui.csproj" ]; then
+        pack_and_merge "${ROOT}/src/Net.Agora.${NAME}.Maui/Net.Agora.${NAME}.Maui.csproj"
+    fi
+done
 
 echo "==> packages in ${OUTPUT}:"
 ls -1 "${OUTPUT}"/*.nupkg

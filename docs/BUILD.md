@@ -101,11 +101,13 @@ source):
 ./build/BuildNugets.sh whiteboard                    # same, for the Whiteboard packages
 ./build/BuildNugets.sh fastboard                     # same, for the Fastboard packages
 ./build/BuildNugets.sh video --suffix beta.12.34      # prerelease: the product's version plus a suffix
+./build/BuildNugets.sh --track rtc                    # a whole release track at once (rtc = video + voice)
 ```
 
 There is no way to pass a whole version: the products sit on independent native version lines
-(RTC 4.6.x, RTM 2.2.x, Chat 1.4.x, Whiteboard 2.16.x, Fastboard 1.4.x), so each packs at its own pin and releases publish whatever the pins say —
-see the release workflow.
+(RTC 4.6.x, RTM 2.2.x, Chat 1.4.x, Whiteboard 2.16.x, Fastboard 1.4.x), so each packs at its own
+pin. `--track` packs every product on one release track (see [`build/tracks.tsv`](../build/tracks.tsv)),
+which is how one tag publishes a whole track — see the release workflow.
 
 Output lands in `./artifacts`, which `NuGet.config` exposes as a package source so the tests and
 the sample app resolve the packages that were just built rather than whatever is on nuget.org.
@@ -158,7 +160,7 @@ exercises what actually ships.
 | --- | --- | --- |
 | [`build.yml`](../.github/workflows/build.yml) | called by the other two | Runs the unit tests, packs the Video façade packages, validates the package layout, runs the device checks on an iOS simulator and an Android emulator, builds the sample |
 | [`pr.yml`](../.github/workflows/pr.yml) | pull requests | Builds `<version>-beta.<pr>.<run>` |
-| [`release.yml`](../.github/workflows/release.yml) | `v*` tags | Publishes the tagged version and creates the GitHub release |
+| [`release.yml`](../.github/workflows/release.yml) | per-track tags (`v*`, `chat-v*`, `whiteboard-v*`, `fastboard-v*`, `signaling-v*`) | Resolves the tag to its track, builds and publishes only that track, creates the GitHub release |
 
 `unit-tests` runs on `ubuntu-latest` with no dependency on `pack`, since `Net.Agora.UnitTests`
 needs neither a packed package nor a mobile workload — it is the fastest failure signal in the
@@ -181,5 +183,32 @@ OIDC token for a short-lived API key, so there is no long-lived key in repositor
 matching the name recorded on the nuget.org policy (`nuget.org` in both workflows here). Policies
 are scoped to a single workflow file, so `pr.yml` and `release.yml` each need their own — and each
 of the three repositories needs its own set of policies, since they publish independently.
+
+## Releasing one track
+
+The products here sit on unrelated version lines, so a release names one track, not a repository
+snapshot. [`build/tracks.tsv`](../build/tracks.tsv) is the source of truth — track, tag-prefix,
+products — read by [`build/resolve-track.sh`](../build/resolve-track.sh) (tag → track),
+`BuildNugets.sh --track`, and `release.yml`. The main RTC track uses a bare `v` tag; every other
+prefixes its product name:
+
+| Track | Tag | Publishes |
+| --- | --- | --- |
+| rtc | `v4.6.2.4` | `Net.Agora.Video` / `.Maui`, `Net.Agora.Voice` / `.Maui` |
+| chat | `chat-v1.4.0.1` | `Net.Agora.Chat` / `.Maui` |
+| signaling | `signaling-v2.2.6.1` | `Net.Agora.Signaling` |
+| whiteboard | `whiteboard-v2.16.137.1` | `Net.Agora.Whiteboard` / `.Maui` |
+| fastboard | `fastboard-v1.4.5.1` | `Net.Agora.Fastboard` / `.Maui` |
+
+Pushing one of these tags builds only that track (skipping the CI-only jobs, which the merged
+commit ran on its PR) and publishes its packages, with notes from
+`docs/release-notes/<tag>.md`. The tag is a label — each package packs at its own pin, and the push
+uses `--skip-duplicate` — so re-tagging a track whose pins did not all move is a no-op for the
+unchanged ones.
+
+Order across repositories still holds: publish `Net.Agora.Android` and `Net.Agora.iOS`'s track
+first, then this repository's, since the façade restores its platform packages from nuget.org. A
+`fastboard-v*` release also needs its `whiteboard-v*` track already published, since Fastboard
+depends on the whiteboard binding.
 
 [trusted-publishing]: https://learn.microsoft.com/nuget/nuget-org/trusted-publishing
