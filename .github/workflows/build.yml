@@ -1,9 +1,11 @@
 name: build
 
-# Reusable pipeline: packs the Video façade packages (Net.Agora.Video, Net.Agora.Video.Maui) at a
-# given version, validates them, runs the unit tests and the device checks on both an iOS
-# simulator and an Android emulator, and builds the sample against the packed packages. Callers
-# (pr.yml, release.yml) decide the version and what to do with the result.
+# Reusable pipeline: packs the façade packages at a given version, validates them, runs the unit
+# tests and the device checks on both an iOS simulator and an Android emulator, and builds each
+# sample against the packed packages. The pack job only packs (and uploads the artifact) so its
+# dependents can start as soon as the packages exist; the sample build/link checks run as their own
+# per-product, per-platform matrix rather than a serial tail of pack. Callers (pr.yml, release.yml)
+# decide the version and what to do with the result.
 #
 # This repository builds no raw platform binding anymore: Net.Agora.Video.Android and
 # Net.Agora.Video.iOS are published from sbokatuk/Net.Agora.Android and sbokatuk/Net.Agora.iOS, and
@@ -144,61 +146,93 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Build the samples against the packed packages
-        # Off on a scoped track release: this is a CI-only build/link check, and the pack above
-        # packed only the tagged track's products - the other samples could not restore at this tag.
-        # The merged commit already ran this on its pull request.
-        if: ${{ inputs.track == '' }}
+  build-samples:
+    name: sample build (${{ matrix.product }}, ${{ matrix.platform }})
+    needs: pack
+    # Off on a scoped track release: a CI-only build/link check, and the scoped pack packed only the
+    # tagged track's products - the other samples could not restore at this tag. The merged commit
+    # already ran this on its pull request.
+    if: ${{ inputs.track == '' }}
+    # Android needs no Apple toolchain, so its leg runs on Linux (faster and cheaper); iOS must have
+    # Xcode. Chosen per matrix leg — see the include block below.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # fail-fast off: one product or platform failing to link should not cancel the others. The
+      # whole point of the check is to see which façades are consumable, so a partial result is a
+      # result - "Fastboard/ios only" and "every product" point at very different causes.
+      fail-fast: false
+      matrix:
+        # One leg per product per platform. Each proves its façade is consumable: it restores (the
+        # platform packages coming from nuget.org at the pinned versions), resolves to the right
+        # platform binding for the target framework, and links under the Release toolchain (R8 on
+        # Android, AOT on iOS) - where a binding that restores fine in Debug can still fail to link.
+        # This was one serial step at the tail of the pack job; the six iOS Release AOT builds run
+        # ~25 min each, so back to back they dominated the whole pipeline. Split out, they run
+        # concurrently, and pack's dependents (validate, e2e) no longer wait on them.
+        product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
+        platform: [android, ios]
+        include:
+          # os/tfm/build-args attach to every combination whose platform matches (GitHub merges an
+          # include entry into the matrix legs that already share its keys). The target frameworks
+          # are the bands the pack job's original loop exercised.
+          - platform: android
+            os: ubuntu-latest
+            tfm: net9.0-android35.0
+          - platform: ios
+            os: macos-15
+            tfm: net9.0-ios18.0
+            # Pinned to a simulator runtime identifier. These samples are built, never launched, so
+            # Release's startup-time AOT concerns do not apply.
+            build-args: -p:RuntimeIdentifier=iossimulator-arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        if: ${{ matrix.platform == 'ios' }}
+        run: ./.github/scripts/select-xcode.sh
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # The samples build at net9 on both platforms, so the .NET 9 band is enough - no net10
+          # scratch global.json as the pack/e2e jobs need.
+          dotnet-version: 9.0.x
+
+      - name: Install the ${{ matrix.platform }} workload
+        # The samples are MAUI apps, so the maui-<platform> workload is required on top of the raw
+        # platform one - this is what makes the check exercise the .Maui packages the device tests
+        # deliberately skip.
+        run: dotnet workload install ${{ matrix.platform }} maui-${{ matrix.platform }}
+
+      - name: Set up the Android SDK
+        if: ${{ matrix.platform == 'android' }}
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35'
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts
+
+      - name: Build the ${{ matrix.product }} sample
         run: |
-          # Proves each façade is actually consumable: it restores (the platform packages coming
-          # from nuget.org at the pinned versions), resolves to the right platform binding per
-          # target framework, and the iOS half links.
-          #
-          # Release, so the check also covers the Release toolchain - the linker/trimmer, R8 on
-          # Android and AOT on iOS - which is where a binding that restores fine in Debug can still
-          # fail to link. iOS stays pinned to a simulator runtime identifier. These samples are only
-          # built here, never launched, so Release's startup-time AOT concerns do not apply.
           . ./build/pins.sh
-          s="${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
-
-          for tfm_args in "net9.0-android35.0" "net9.0-ios18.0 -p:RuntimeIdentifier=iossimulator-arm64"; do
-            set -- $tfm_args
-            echo "::group::sample $1"
-            dotnet build samples/Net.Agora.Sample \
-              -c Release -f "$@" \
-              -p:AgoraVideoPackageVersion="${AGORA_VIDEO_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-
-            echo "::group::voice sample $1"
-            dotnet build samples/Net.Agora.Sample.Voice \
-              -c Release -f "$@" \
-              -p:AgoraVoicePackageVersion="${AGORA_VOICE_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-
-            echo "::group::signaling sample $1"
-            dotnet build samples/Net.Agora.Sample.Signaling \
-              -c Release -f "$@" \
-              -p:AgoraSignalingPackageVersion="${AGORA_SIGNALING_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-
-            echo "::group::chat sample $1"
-            dotnet build samples/Net.Agora.Sample.Chat \
-              -c Release -f "$@" \
-              -p:AgoraChatPackageVersion="${AGORA_CHAT_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-
-            echo "::group::whiteboard sample $1"
-            dotnet build samples/Net.Agora.Sample.Whiteboard \
-              -c Release -f "$@" \
-              -p:AgoraWhiteboardPackageVersion="${AGORA_WHITEBOARD_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-
-            echo "::group::fastboard sample $1"
-            dotnet build samples/Net.Agora.Sample.Fastboard \
-              -c Release -f "$@" \
-              -p:AgoraFastboardPackageVersion="${AGORA_FASTBOARD_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-          done
+          # product -> its sample project and its own version (products sit on independent native
+          # version lines, so each carries its own version property). Mirrors the e2e jobs' case.
+          case "${{ matrix.product }}" in
+            Video)      project=Net.Agora.Sample;            base="${AGORA_VIDEO_PACKAGE_VERSION}";      prop=AgoraVideoPackageVersion ;;
+            Voice)      project=Net.Agora.Sample.Voice;      base="${AGORA_VOICE_PACKAGE_VERSION}";      prop=AgoraVoicePackageVersion ;;
+            Signaling)  project=Net.Agora.Sample.Signaling;  base="${AGORA_SIGNALING_PACKAGE_VERSION}";  prop=AgoraSignalingPackageVersion ;;
+            Chat)       project=Net.Agora.Sample.Chat;       base="${AGORA_CHAT_PACKAGE_VERSION}";       prop=AgoraChatPackageVersion ;;
+            Whiteboard) project=Net.Agora.Sample.Whiteboard; base="${AGORA_WHITEBOARD_PACKAGE_VERSION}"; prop=AgoraWhiteboardPackageVersion ;;
+            Fastboard)  project=Net.Agora.Sample.Fastboard;  base="${AGORA_FASTBOARD_PACKAGE_VERSION}";  prop=AgoraFastboardPackageVersion ;;
+          esac
+          version="${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
+          dotnet build "samples/${project}" \
+            -c Release -f "${{ matrix.tfm }}" ${{ matrix.build-args }} \
+            -p:"${prop}=${version}"
 
   validate:
     name: validate packages
