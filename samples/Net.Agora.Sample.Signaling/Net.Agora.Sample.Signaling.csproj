@@ -3,8 +3,8 @@
   <!--
     MAUI sample that logs in to Agora Signaling, subscribes to a channel and publishes/receives
     messages — a tiny chat room. Consumes the packed Net.Agora.Signaling package from artifacts/
-    (see NuGet.config), so it exercises the package exactly as a consumer would. No .Maui
-    companion exists for this product: RTM needs no platform glue.
+    (see NuGet.config). It references Net.Agora.Signaling.Maui — not because Signaling needs the
+    glue (it does not), but so this sample's CreateClient() reads the same as every other product's.
 
     Target frameworks follow the SDK band, like the binding projects. No Mac Catalyst leg — see
     src/Net.Agora.Signaling/Net.Agora.Signaling.csproj.
@@ -61,7 +61,7 @@
       being built. Exact version, in brackets — a bare version is a *minimum* to NuGet, so a build
       missing from artifacts/ would silently resolve from nuget.org instead of failing the restore.
     -->
-    <PackageReference Include="Net.Agora.Signaling" Version="[$(AgoraSignalingPackageVersion)]" />
+    <PackageReference Include="Net.Agora.Signaling.Maui" Version="[$(AgoraSignalingPackageVersion)]" />
   </ItemGroup>
 
 </Project>

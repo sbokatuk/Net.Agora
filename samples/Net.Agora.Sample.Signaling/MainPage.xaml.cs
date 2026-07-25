@@ -1,5 +1,6 @@
 using System.Text;
 using Net.Agora.Signaling;
+using Net.Agora.Signaling.Maui;
 
 namespace Net.Agora.Sample.Signaling;
 
@@ -7,7 +8,9 @@ namespace Net.Agora.Sample.Signaling;
 /// A tiny chat room over Agora Signaling: log in, subscribe to one channel, publish string
 /// messages and show what arrives. The whole app is this one file — there is no per-platform
 /// code, because <c>Net.Agora.Signaling</c> presents the same client on Android and iOS and
-/// needs no platform glue at all.
+/// needs no platform glue at all. It constructs the client through
+/// <c>Net.Agora.Signaling.Maui</c>'s <c>CreateClient()</c> only for symmetry with the other
+/// products' samples.
 /// </summary>
 public partial class MainPage : ContentPage
 {
@@ -36,12 +39,16 @@ public partial class MainPage : ContentPage
 
         try
         {
-            var client = new AgoraSignalingClient(new AgoraSignalingOptions
+            // CreateClient() from Net.Agora.Signaling.Maui — the same call every other product's
+            // sample makes. For Signaling it is exactly `new AgoraSignalingClient(options)`, since
+            // there is no Context to supply; the point is that the code reads the same across
+            // products.
+            var client = new AgoraSignalingOptions
             {
                 AppId = appId,
                 UserId = userId,
                 Token = string.IsNullOrEmpty(TokenEntry.Text) ? null : TokenEntry.Text.Trim(),
-            });
+            }.CreateClient();
 
             // The SDK raises callbacks on its own thread; Append hops to the UI thread itself.
             client.MessageReceived += (_, ev) =>

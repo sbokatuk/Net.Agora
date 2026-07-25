@@ -18,6 +18,7 @@ dotnet add package Net.Agora.Video        # video, everything else
 dotnet add package Net.Agora.Voice.Maui   # MAUI voice-only apps
 dotnet add package Net.Agora.Voice        # voice-only, everything else
 dotnet add package Net.Agora.Signaling    # realtime messaging (RTM) — MAUI or plain, same package
+dotnet add package Net.Agora.Signaling.Maui # optional: CreateClient() symmetry with the others
 dotnet add package Net.Agora.Chat.Maui    # MAUI chat (IM) apps
 dotnet add package Net.Agora.Chat         # chat (IM), everything else
 dotnet add package Net.Agora.Whiteboard.Maui   # MAUI whiteboard apps: adds the board view
@@ -131,7 +132,7 @@ package tests, sample apps, CI. See [docs/BUILD.md](docs/BUILD.md) for the exact
 | --- | --- | --- | --- | --- |
 | Video | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ view + glue |
 | Voice | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ glue (no view — voice renders nothing) |
-| Signaling | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | n/a — no glue needed, same package everywhere |
+| Signaling | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ `CreateClient()` for symmetry (no glue needed — the plain package works in MAUI too) |
 | Chat | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ glue (no view — chat renders nothing) |
 | Whiteboard | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ board view + glue |
 | Fastboard | ✅ [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) | ✅ [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) | ✅ | ✅ board view + glue |

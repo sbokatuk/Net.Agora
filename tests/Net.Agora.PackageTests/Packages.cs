@@ -26,6 +26,7 @@ public static class Packages
     public const string SignalingAndroid = "Net.Agora.Signaling.Android";
     public const string SignalingIOS = "Net.Agora.Signaling.iOS";
     public const string Signaling = "Net.Agora.Signaling";
+    public const string SignalingMaui = "Net.Agora.Signaling.Maui";
     public const string ChatAndroid = "Net.Agora.Chat.Android";
     public const string ChatIOS = "Net.Agora.Chat.iOS";
     public const string Chat = "Net.Agora.Chat";
@@ -48,9 +49,10 @@ public static class Packages
     [
         (Video, VideoMaui, VideoAndroid, VideoIOS),
         (Voice, VoiceMaui, VoiceAndroid, VoiceIOS),
-        // No MAUI companion: RTM needs no Android Context and renders nothing, so there is no
-        // platform glue to hide — see src/Net.Agora.Signaling/Net.Agora.Signaling.csproj.
-        (Signaling, null, SignalingAndroid, SignalingIOS),
+        // Its .Maui companion adds nothing platform-specific — RTM needs no Android Context — and
+        // exists only for the CreateClient() symmetry the other products have; see
+        // src/Net.Agora.Signaling.Maui. It is still packed and pinned, so it belongs in this table.
+        (Signaling, SignalingMaui, SignalingAndroid, SignalingIOS),
         (Chat, ChatMaui, ChatAndroid, ChatIOS),
         // The one product whose two platform packages are on different version lines — netless
         // releases the Android and iOS whiteboards from separate repositories.

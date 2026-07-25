@@ -35,6 +35,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Net.Agora.Fastboard", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Net.Agora.Fastboard.Maui", "src\Net.Agora.Fastboard.Maui\Net.Agora.Fastboard.Maui.csproj", "{C8056596-E86F-4132-B96E-E2A6CB54BC6B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Net.Agora.Signaling.Maui", "src\Net.Agora.Signaling.Maui\Net.Agora.Signaling.Maui.csproj", "{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -213,6 +215,18 @@ Global
 		{C8056596-E86F-4132-B96E-E2A6CB54BC6B}.Release|x64.Build.0 = Release|Any CPU
 		{C8056596-E86F-4132-B96E-E2A6CB54BC6B}.Release|x86.ActiveCfg = Release|Any CPU
 		{C8056596-E86F-4132-B96E-E2A6CB54BC6B}.Release|x86.Build.0 = Release|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Debug|x64.Build.0 = Debug|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Debug|x86.Build.0 = Debug|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Release|x64.ActiveCfg = Release|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Release|x64.Build.0 = Release|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Release|x86.ActiveCfg = Release|Any CPU
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -232,5 +246,6 @@ Global
 		{15E43359-75D0-4002-A2AD-AD660DA9E26D} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{12C39664-85B9-4BE4-A96F-D2650A9E357E} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{C8056596-E86F-4132-B96E-E2A6CB54BC6B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{5D0691B0-9946-42E5-8ACC-00DBC1DE553E} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

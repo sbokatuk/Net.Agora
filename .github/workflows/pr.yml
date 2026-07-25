@@ -88,7 +88,9 @@ jobs:
             for id in Net.Agora.Video.Maui Net.Agora.Video Net.Agora.Voice.Maui Net.Agora.Voice; do
               echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_VIDEO_PACKAGE_VERSION}-${s})"
             done
-            echo "- [Net.Agora.Signaling](https://www.nuget.org/packages/Net.Agora.Signaling/${AGORA_SIGNALING_PACKAGE_VERSION}-${s})"
+            for id in Net.Agora.Signaling.Maui Net.Agora.Signaling; do
+              echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_SIGNALING_PACKAGE_VERSION}-${s})"
+            done
             for id in Net.Agora.Chat.Maui Net.Agora.Chat; do
               echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_CHAT_PACKAGE_VERSION}-${s})"
             done

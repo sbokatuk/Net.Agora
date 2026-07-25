@@ -5,8 +5,10 @@
     publishes/receives messages with one surface over Android's RtmClient and iOS's
     AgoraRtmClientKit.
 
-    Deliberately no MAUI dependency — and, unlike the RTC products, no MAUI companion package at
-    all: RTM needs no Android Context and renders nothing, so there is no platform glue to hide.
+    Deliberately no MAUI dependency: RTM needs no Android Context and renders nothing, so this
+    package works verbatim in a MAUI app on its own. There is a Net.Agora.Signaling.Maui, but only
+    for API symmetry — it adds a CreateClient() that matches the other products' companions and is
+    otherwise unnecessary; see that project.
 
     No Mac Catalyst leg: Agora ships no maccatalyst slice for AgoraRtmKit.xcframework — see
     sbokatuk/Net.Agora.iOS's README.

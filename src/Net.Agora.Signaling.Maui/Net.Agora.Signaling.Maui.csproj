@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The MAUI companion for Net.Agora.Signaling. It exists for symmetry rather than necessity:
+    Signaling is the one product here that needs no platform glue at all — RTM takes no Android
+    Context and renders nothing, so `new AgoraSignalingClient(options)` already works verbatim on
+    both platforms and inside MAUI.
+
+    What this adds is one thing: a CreateClient() extension identical in shape to the ones on
+    Net.Agora.Video.Maui / Voice.Maui / Chat.Maui, so a MAUI app can construct every Agora client
+    the same way — `options.CreateClient()` — without remembering that Signaling is the exception.
+    An app that does not want that uniformity can reference Net.Agora.Signaling directly and call
+    the constructor; nothing here is required.
+
+    No view, no handler, and — unlike the others' Android halves — no Context lookup, because there
+    is nothing to look up. No Mac Catalyst leg, see Net.Agora.Signaling.csproj.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+
+    <AssemblyName>Net.Agora.Signaling.Maui</AssemblyName>
+    <RootNamespace>Net.Agora.Signaling.Maui</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <VersionPrefix>$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)</VersionPrefix>
+
+    <!--
+      UseMauiCore rather than UseMaui: this is a library of extensions, not an app, and the full
+      UseMaui brings in app-only targets (resource generation, splash screens) that have nothing
+      to do here.
+    -->
+    <UseMauiCore>true</UseMauiCore>
+    <UseMauiEssentials>true</UseMauiEssentials>
+    <SingleProject>true</SingleProject>
+
+    <!--
+      MA002: since .NET 8, UseMauiCore/UseMauiEssentials no longer implicitly add the matching
+      PackageReference — they still set up everything actually needed to build and pack this
+      project, and the suggested explicit PackageReference is version-pinned to a single band,
+      which fights the net8/net9/net10 multi-targeting here. Silencing the advisory rather than
+      the underlying behavior.
+    -->
+    <SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      $(Version) first, so an explicit -p:Version=... (what BuildNugets.sh passes — including beta
+      suffixes) pins the dependency to the façade being packed alongside. $(Version) is only
+      non-empty at evaluation time when passed like that, so a plain build (e.g. of the solution)
+      falls through to $(VersionPrefix) rather than producing an invalid empty pin '[]'.
+    -->
+    <AgoraSignalingDependencyVersion Condition=" '$(AgoraSignalingDependencyVersion)' == '' ">$(Version)</AgoraSignalingDependencyVersion>
+    <AgoraSignalingDependencyVersion Condition=" '$(AgoraSignalingDependencyVersion)' == '' And '$(VersionSuffix)' != '' ">$(VersionPrefix)-$(VersionSuffix)</AgoraSignalingDependencyVersion>
+    <AgoraSignalingDependencyVersion Condition=" '$(AgoraSignalingDependencyVersion)' == '' ">$(VersionPrefix)</AgoraSignalingDependencyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Net.Agora.Signaling" Version="[$(AgoraSignalingDependencyVersion)]" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Net.Agora.Signaling.Maui</PackageId>
+    <Title>.NET MAUI helpers for Net.Agora.Signaling.</Title>
+    <Description>A CreateClient() convenience so a .NET MAUI app can construct an Agora Signaling client the same way as every other Net.Agora product. Signaling needs no platform glue — unlike the RTC and Chat clients it takes no Android Context — so this is symmetry, not necessity: Net.Agora.Signaling works in MAUI on its own, and new AgoraSignalingClient(options) does the same thing.</Description>
+    <PackageTags>Agora;Signaling;RTM;messaging;realtime;SDK;MAUI;Android;iOS</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+</Project>

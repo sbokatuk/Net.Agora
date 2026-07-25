@@ -38,8 +38,8 @@ src/
   Net.Agora.Video.Maui/         the MAUI video view + platform glue
   Net.Agora.Voice/              the cross-platform Voice client
   Net.Agora.Voice.Maui/         the MAUI platform glue (no view — voice renders nothing)
-  Net.Agora.Signaling/          the cross-platform Signaling (RTM) client — no MAUI companion,
-                                 nothing platform-specific to hide
+  Net.Agora.Signaling/          the cross-platform Signaling (RTM) client
+  Net.Agora.Signaling.Maui/     a CreateClient() for symmetry — Signaling needs no platform glue
   Net.Agora.Chat/               the cross-platform Chat (IM) client
   Net.Agora.Chat.Maui/          the MAUI platform glue (no view — chat renders nothing)
   Net.Agora.Whiteboard/         the cross-platform Interactive Whiteboard client
@@ -196,7 +196,7 @@ prefixes its product name:
 | --- | --- | --- |
 | rtc | `v4.6.2.4` | `Net.Agora.Video` / `.Maui`, `Net.Agora.Voice` / `.Maui` |
 | chat | `chat-v1.4.0.1` | `Net.Agora.Chat` / `.Maui` |
-| signaling | `signaling-v2.2.6.1` | `Net.Agora.Signaling` |
+| signaling | `signaling-v2.2.6.1` | `Net.Agora.Signaling`, `Net.Agora.Signaling.Maui` |
 | whiteboard | `whiteboard-v2.16.137.1` | `Net.Agora.Whiteboard` / `.Maui` |
 | fastboard | `fastboard-v1.4.5.1` | `Net.Agora.Fastboard` / `.Maui` |
 
