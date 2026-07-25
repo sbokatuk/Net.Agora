@@ -69,18 +69,18 @@ rm -rf "${REPO_ROOT}/tests/Net.Agora.DeviceTests/obj" \
        "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin"
 
 echo "==> building device tests (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version})"
-# Debug, not Release - the same call the sample build makes, and for the same reason: a Release
-# build AOT-compiles and links every assembly, which costs real runner time for no additional
-# signal on whether the package restores, resolves and links correctly - which is what this suite
-# verifies.
+# Release, so the checks run against the same trimmed and AOT-compiled build a consumer ships - the
+# configuration where a binding that restores fine in Debug can still fail to link. It costs more
+# runner time than Debug, but unlike the Android emulator suite an iOS simulator Release build
+# still starts and runs, so this stays a single build-and-run rather than a split build/link check.
 ( cd "${SDK_DIR}" && dotnet build "${PROJECT}" \
-    --configuration Debug \
+    --configuration Release \
     -p:AgoraDeviceProduct="${PRODUCT}" \
     -p:AgoraPackageVersion="${VERSION}" \
     -p:AgoraDeviceTargetFramework="${TARGET_FRAMEWORK}" \
     -p:RuntimeIdentifier="${SIMULATOR_RID}" )
 
-APP_PATH="$(find "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin/Debug/${TARGET_FRAMEWORK}/${SIMULATOR_RID}" \
+APP_PATH="$(find "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin/Release/${TARGET_FRAMEWORK}/${SIMULATOR_RID}" \
     -maxdepth 1 -name '*.app' -print -quit)"
 if [ -z "${APP_PATH}" ]; then
     echo "::error::no .app bundle was produced"

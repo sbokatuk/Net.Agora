@@ -145,14 +145,19 @@ jobs:
           retention-days: 7
 
       - name: Build the samples against the packed packages
+        # Off on a scoped track release: this is a CI-only build/link check, and the pack above
+        # packed only the tagged track's products - the other samples could not restore at this tag.
+        # The merged commit already ran this on its pull request.
+        if: ${{ inputs.track == '' }}
         run: |
           # Proves each façade is actually consumable: it restores (the platform packages coming
           # from nuget.org at the pinned versions), resolves to the right platform binding per
           # target framework, and the iOS half links.
           #
-          # Debug, and iOS pinned to a simulator runtime identifier: an iOS Release build trims and
-          # AOT-compiles, which with the ~25 MB AgoraRtcKit framework costs real runner time for no
-          # added signal. Debug still restores, resolves and links, which is what this step is for.
+          # Release, so the check also covers the Release toolchain - the linker/trimmer, R8 on
+          # Android and AOT on iOS - which is where a binding that restores fine in Debug can still
+          # fail to link. iOS stays pinned to a simulator runtime identifier. These samples are only
+          # built here, never launched, so Release's startup-time AOT concerns do not apply.
           . ./build/pins.sh
           s="${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
 
@@ -160,37 +165,37 @@ jobs:
             set -- $tfm_args
             echo "::group::sample $1"
             dotnet build samples/Net.Agora.Sample \
-              -c Debug -f "$@" \
+              -c Release -f "$@" \
               -p:AgoraVideoPackageVersion="${AGORA_VIDEO_PACKAGE_VERSION}${s}"
             echo "::endgroup::"
 
             echo "::group::voice sample $1"
             dotnet build samples/Net.Agora.Sample.Voice \
-              -c Debug -f "$@" \
+              -c Release -f "$@" \
               -p:AgoraVoicePackageVersion="${AGORA_VOICE_PACKAGE_VERSION}${s}"
             echo "::endgroup::"
 
             echo "::group::signaling sample $1"
             dotnet build samples/Net.Agora.Sample.Signaling \
-              -c Debug -f "$@" \
+              -c Release -f "$@" \
               -p:AgoraSignalingPackageVersion="${AGORA_SIGNALING_PACKAGE_VERSION}${s}"
             echo "::endgroup::"
 
             echo "::group::chat sample $1"
             dotnet build samples/Net.Agora.Sample.Chat \
-              -c Debug -f "$@" \
+              -c Release -f "$@" \
               -p:AgoraChatPackageVersion="${AGORA_CHAT_PACKAGE_VERSION}${s}"
             echo "::endgroup::"
 
             echo "::group::whiteboard sample $1"
             dotnet build samples/Net.Agora.Sample.Whiteboard \
-              -c Debug -f "$@" \
+              -c Release -f "$@" \
               -p:AgoraWhiteboardPackageVersion="${AGORA_WHITEBOARD_PACKAGE_VERSION}${s}"
             echo "::endgroup::"
 
             echo "::group::fastboard sample $1"
             dotnet build samples/Net.Agora.Sample.Fastboard \
-              -c Debug -f "$@" \
+              -c Release -f "$@" \
               -p:AgoraFastboardPackageVersion="${AGORA_FASTBOARD_PACKAGE_VERSION}${s}"
             echo "::endgroup::"
           done
