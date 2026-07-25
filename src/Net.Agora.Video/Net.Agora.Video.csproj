@@ -20,7 +20,7 @@
     those two repositories' own build/BuildNugets.sh has packed them there). See docs/BUILD.md.
   -->
   <PropertyGroup>
-    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks);$(AgoraMacosTargetFrameworks)</TargetFrameworks>
 
     <AssemblyName>Net.Agora.Video</AssemblyName>
     <RootNamespace>Net.Agora.Video</RootNamespace>
@@ -46,6 +46,17 @@
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
     <Compile Include="Platforms/Apple/**/*.cs" />
     <PackageReference Include="Net.Agora.Video.iOS" Version="[$(NetAgoraVideoIosVersion)]" />
+  </ItemGroup>
+
+  <!--
+    The native macOS (AppKit) leg shares the Platforms/Apple sources with iOS: the same
+    AgoraRtcEngineKit surface, with the file's own #if MACOS handling the two differences (an NSView
+    canvas instead of UIView, and the iOS-only speakerphone/switch-camera calls the macOS engine
+    does not implement). Binds the Net.Agora.Video.Mac package — see sbokatuk/Net.Agora.Mac.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
+    <Compile Include="Platforms/Apple/**/*.cs" />
+    <PackageReference Include="Net.Agora.Video.Mac" Version="[$(NetAgoraVideoMacVersion)]" />
   </ItemGroup>
 
   <PropertyGroup>

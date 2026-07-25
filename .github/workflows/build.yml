@@ -105,15 +105,18 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Install iOS, Android and MAUI workloads for every SDK band
+      - name: Install iOS, macOS, Android and MAUI workloads for every SDK band
         run: |
+          # macos is here for the native macOS (AppKit) leg of the Video/Voice/Signaling façades —
+          # a distinct platform from maui-ios (which is Mac Catalyst-only, and Agora ships no
+          # Catalyst slice). See src/Net.Agora.Video/Net.Agora.Video.csproj's macos ItemGroup.
           for major in 9 10; do
             dir="${RUNNER_TEMP}/sdk${major}"
             mkdir -p "${dir}"
             sdk=$(dotnet --list-sdks | grep "^${major}\." | tail -1 | cut -d' ' -f1)
             ( cd "${dir}" \
               && dotnet new globaljson --sdk-version "${sdk}" --force \
-              && dotnet workload install ios android maui-android maui-ios )
+              && dotnet workload install ios macos android maui-android maui-ios )
           done
 
       - name: Set up Android SDK platforms

@@ -33,6 +33,50 @@ public class PackageLayoutTests
         Assert.True(package.GetEntry(expected) is not null, $"{facade} is missing '{expected}'.");
     }
 
+    [SkippableTheory]
+    [MemberData(nameof(Packages.FacadeMacosFrameworks), MemberType = typeof(Packages))]
+    public void Facade_carries_an_assembly_for_every_macos_target_framework(string facade, string tfm)
+    {
+        // The macOS leg is only built on macOS, so on a Linux run this skips rather than fails —
+        // same posture as the iOS leg. Only Video/Voice/Signaling have a macOS leg at all.
+        Skip.IfNot(Packages.Exists(facade), $"{facade} was not packed");
+
+        using var package = Packages.OpenPackage(facade);
+
+        var expected = $"lib/{tfm}/{facade}.dll";
+        Assert.True(package.GetEntry(expected) is not null, $"{facade} is missing '{expected}'.");
+    }
+
+    [SkippableTheory]
+    [MemberData(nameof(Packages.MacProductRows), MemberType = typeof(Packages))]
+    public void Metapackage_depends_on_the_macos_binding_at_the_pinned_version(string facade, string mac)
+    {
+        Skip.IfNot(Packages.Exists(facade), $"{facade} was not packed");
+
+        using var package = Packages.OpenPackage(facade);
+        var nuspec = Packages.ReadNuspec(package, facade);
+
+        var dependencies = nuspec.Descendants()
+            .Where(e => e.Name.LocalName == "dependency")
+            .ToList();
+
+        // The .Mac dependency lives only in the macos dependency group, so it is present only when
+        // the macos leg was packed (a macOS runner) — assert its presence and its exact pin there.
+        var macDependencies = dependencies
+            .Where(d => d.Attribute("id")?.Value == mac)
+            .ToList();
+        Skip.If(macDependencies.Count == 0, $"{facade} was packed without its macOS leg (non-macOS runner)");
+
+        // Exact pin, not a floating range — same reasoning as the Android/iOS pins.
+        foreach (var dependency in macDependencies)
+        {
+            var version = dependency.Attribute("version")?.Value;
+            Assert.True(
+                version is not null && version.StartsWith('[') && version.EndsWith(']'),
+                $"{mac} dependency version '{version}' is not an exact pin ([x.y.z]).");
+        }
+    }
+
     [Theory]
     [MemberData(nameof(Packages.ProductRows), MemberType = typeof(Packages))]
     public void Metapackage_depends_on_the_platform_bindings_at_the_pinned_versions(

@@ -2,9 +2,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Targets: net8.0 | net9.0 | net10.0](https://img.shields.io/badge/targets-net8.0%20%7C%20net9.0%20%7C%20net10.0-512BD4)](#packages)
-[![Platforms: Android | iOS](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-blue)](#packages)
+[![Platforms: Android | iOS | macOS](https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20macOS-blue)](#packages)
 
-.NET bindings for [Agora][agora]'s native SDKs, with one API across Android and iOS. Join RTC
+.NET bindings for [Agora][agora]'s native SDKs, with one API across Android, iOS and macOS. Join RTC
 channels, publish and subscribe audio and video, from C# — in .NET MAUI or plain .NET for Android
 / .NET for iOS.
 
@@ -257,16 +257,22 @@ Capture permissions are the app's own responsibility either way: `CAMERA` and `R
 | Package | What it is | Target frameworks | Published from |
 | --- | --- | --- | --- |
 | `Net.Agora.Video.Maui` | MAUI video view and handlers | net8.0, net9.0, net10.0 (android + ios) | this repo |
-| `Net.Agora.Video` | The cross-platform client: `IAgoraVideoClient`, options, events, async | net8.0, net9.0, net10.0 (android + ios) | this repo |
+| `Net.Agora.Video` | The cross-platform client: `IAgoraVideoClient`, options, events, async | net8.0, net9.0, net10.0 (android + ios + **macos**) | this repo |
 | `Net.Agora.Video.Android` | The raw binding to Agora's Video Android SDK | `net8.0-android34.0`, `net9.0-android35.0`, `net10.0-android36.0` | [Net.Agora.Android](https://github.com/sbokatuk/Net.Agora.Android) |
 | `Net.Agora.Video.iOS` | The raw binding to Agora's Video iOS SDK | `net8.0-ios18.0`, `net9.0-ios18.0`, `net10.0-ios26.0` | [Net.Agora.iOS](https://github.com/sbokatuk/Net.Agora.iOS) |
+| `Net.Agora.Video.Mac` | The raw binding to Agora's Video **macOS** (AppKit) SDK | `net8.0-macos`, `net9.0-macos`, `net10.0-macos` | [Net.Agora.Mac](https://github.com/sbokatuk/Net.Agora.Mac) |
 
 Each package pulls in the one below it, so a single reference is enough. Drop to a platform
 binding directly for anything the cross-platform API does not expose — the full bound surface is
-under `Agora.Rtc.*` (Android) and `Net.Agora.Video.iOS.*` (a hand-written subset — see each
-repository's own README).
+under `Agora.Rtc.*` (Android), `Net.Agora.Video.iOS.*` and `Net.Agora.Video.Mac.*` (hand-written
+subsets — see each repository's own README).
 
-No Mac Catalyst: Agora's iOS SDK ships no `maccatalyst` slice (`ios-arm64` and simulator only).
+**Native macOS, but not Mac Catalyst.** The cross-platform `Net.Agora.Video` / `Net.Agora.Voice` /
+`Net.Agora.Signaling` clients gain a `net*-macos` (AppKit) leg over the `.Mac` bindings, so a native
+.NET for macOS app gets the same API as Android and iOS. There is no MAUI-on-Mac path: MAUI's only
+desktop-Mac target is Mac Catalyst, and Agora ships no `maccatalyst` slice — so the `.Maui` packages
+stay Android + iOS, and macOS support is native-AppKit only. Chat, Whiteboard and Fastboard have no
+macOS leg (Agora ships no native macOS SDK for them).
 
 ## Why there is a cross-platform layer
 

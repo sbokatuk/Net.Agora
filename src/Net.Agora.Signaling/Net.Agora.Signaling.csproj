@@ -24,7 +24,7 @@
     See docs/BUILD.md.
   -->
   <PropertyGroup>
-    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks);$(AgoraMacosTargetFrameworks)</TargetFrameworks>
 
     <AssemblyName>Net.Agora.Signaling</AssemblyName>
     <RootNamespace>Net.Agora.Signaling</RootNamespace>
@@ -52,6 +52,16 @@
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
     <Compile Include="Platforms/Apple/**/*.cs" />
     <PackageReference Include="Net.Agora.Signaling.iOS" Version="[$(NetAgoraSignalingIosVersion)]" />
+  </ItemGroup>
+
+  <!--
+    The native macOS (AppKit) leg shares the Platforms/Apple sources with iOS unchanged — the
+    AgoraRtmClientKit surface is identical. Binds the Net.Agora.Signaling.Mac package (see
+    sbokatuk/Net.Agora.Mac).
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
+    <Compile Include="Platforms/Apple/**/*.cs" />
+    <PackageReference Include="Net.Agora.Signaling.Mac" Version="[$(NetAgoraSignalingMacVersion)]" />
   </ItemGroup>
 
   <PropertyGroup>

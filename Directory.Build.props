@@ -21,6 +21,16 @@
     <NetAgoraVoiceIosVersion>4.6.2.4</NetAgoraVoiceIosVersion>
     <NetAgoraSignalingAndroidVersion>2.2.6.1</NetAgoraSignalingAndroidVersion>
     <NetAgoraSignalingIosVersion>2.2.6.1</NetAgoraSignalingIosVersion>
+    <!--
+      The native macOS (AppKit) bindings, from sbokatuk/Net.Agora.Mac. Only Video, Voice and
+      Signaling have a macOS leg — Agora ships no native macOS SDK for Chat/Whiteboard/Fastboard.
+      These are a distinct platform from the iOS ones (net*-macos / AppKit, not Mac Catalyst, which
+      Agora ships no slice for), on their own version lines: the macOS RTC line matches iOS at 4.6.2
+      today, the RTM line is 2.2.8.
+    -->
+    <NetAgoraVideoMacVersion>4.6.2.1</NetAgoraVideoMacVersion>
+    <NetAgoraVoiceMacVersion>4.6.2.1</NetAgoraVoiceMacVersion>
+    <NetAgoraSignalingMacVersion>2.2.8.1</NetAgoraSignalingMacVersion>
     <NetAgoraChatAndroidVersion>1.4.0.1</NetAgoraChatAndroidVersion>
     <NetAgoraChatIosVersion>1.4.0.1</NetAgoraChatIosVersion>
     <!--
@@ -90,6 +100,17 @@
 
     <AgoraIosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net9' ">net8.0-ios18.0;net9.0-ios18.0</AgoraIosTargetFrameworks>
     <AgoraIosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net10' ">net10.0-ios26.0</AgoraIosTargetFrameworks>
+
+    <!--
+      The native macOS (AppKit) leg. Only the products with a Net.Agora.<P>.Mac binding carry it —
+      Video, Voice and Signaling — so it is a separate band property those csprojs append to their
+      TargetFrameworks, rather than part of the shared Apple list. macOS has no simulator and one
+      universal slice, so the two-pass net9/net10 merge is the same shape as iOS. There is no MAUI
+      companion for it: MAUI's only desktop-Mac target is Mac Catalyst, which Agora ships no slice
+      for — see the .Maui csprojs.
+    -->
+    <AgoraMacosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net9' ">net8.0-macos;net9.0-macos</AgoraMacosTargetFrameworks>
+    <AgoraMacosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net10' ">net10.0-macos</AgoraMacosTargetFrameworks>
   </PropertyGroup>
 
   <!--
