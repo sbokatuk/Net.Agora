@@ -1,7 +1,17 @@
 // One suite, two products: the same checks compile against the Video or the Voice façade (see
 // the csproj's AgoraDeviceProduct), so the aliases below are the only per-product spelling. The
 // few genuinely product-specific checks sit behind AGORA_VOICE.
-#if AGORA_CHAT
+#if AGORA_FASTBOARD
+using Net.Agora.Fastboard;
+using AgoraClient = Net.Agora.Fastboard.AgoraFastboardClient;
+using AgoraClientException = Net.Agora.Fastboard.AgoraFastboardException;
+using AgoraClientOptions = Net.Agora.Fastboard.AgoraFastboardOptions;
+#elif AGORA_WHITEBOARD
+using Net.Agora.Whiteboard;
+using AgoraClient = Net.Agora.Whiteboard.AgoraWhiteboardClient;
+using AgoraClientException = Net.Agora.Whiteboard.AgoraWhiteboardException;
+using AgoraClientOptions = Net.Agora.Whiteboard.AgoraWhiteboardOptions;
+#elif AGORA_CHAT
 using Net.Agora.Chat;
 using AgoraClient = Net.Agora.Chat.AgoraChatClient;
 using AgoraClientException = Net.Agora.Chat.AgoraChatException;
@@ -101,7 +111,23 @@ public static class SmokeTests
     /// <summary>Every check, in the order they must run.</summary>
     public static SmokeTest[] All =>
     [
-#if AGORA_CHAT
+#if AGORA_FASTBOARD
+        new("a missing identifier is rejected before any native call", MissingAppIdIsRejected),
+        new("constructs the board and its toolbar", ConstructsTheClient),
+        new("drawing before a join is rejected by the client, not the board", DrawBeforeJoinIsRejected),
+        new("cancelling the token surfaces as OperationCanceledException", CancellationIsDistinctFromTimeout),
+        new("an unregistered room fails the join within the configured timeout", LoginFailsWithinTimeout),
+        new("disconnect without a join is a no-op", LogoutWithoutALoginIsANoOp),
+        new("disposes cleanly", DisposesCleanly),
+#elif AGORA_WHITEBOARD
+        new("a missing identifier is rejected before any native call", MissingAppIdIsRejected),
+        new("constructs the SDK against a board view", ConstructsTheClient),
+        new("drawing before a join is rejected by the client, not the board", DrawBeforeJoinIsRejected),
+        new("cancelling the token surfaces as OperationCanceledException", CancellationIsDistinctFromTimeout),
+        new("an unregistered room fails the join within the configured timeout", LoginFailsWithinTimeout),
+        new("disconnect without a join is a no-op", LogoutWithoutALoginIsANoOp),
+        new("disposes cleanly", DisposesCleanly),
+#elif AGORA_CHAT
         new("a missing App ID, user ID or token is rejected before any native call", MissingAppIdIsRejected),
         new("constructs the client", ConstructsTheClient),
         new("an empty renew token is rejected", RenewsAToken),
@@ -142,7 +168,27 @@ public static class SmokeTests
 
     private static AgoraClient CreateClient(AgoraClientOptions options)
     {
-#if ANDROID && !AGORA_SIGNALING
+#if AGORA_FASTBOARD
+        // Only Android hands the board a view; on iOS Fastboard creates its own, which is the one
+        // platform difference the MAUI package exists to hide and the one this suite reaches
+        // around, since it is not a MAUI app.
+#if ANDROID
+        var fastboardContext = AndroidContext ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set.");
+        return new AgoraClient(options, new global::Agora.Fastboard.FastboardView(fastboardContext));
+#else
+        return new AgoraClient(options);
+#endif
+#elif AGORA_WHITEBOARD
+        // The board view is the client's other half on both platforms — the SDK binds the two at
+        // construction — so it is created here rather than by a Set*View call after the fact. It
+        // needs no window to exist, which is what lets this suite run headless.
+#if ANDROID
+        var context = AndroidContext ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set.");
+        return new AgoraClient(options, new global::Agora.Whiteboard.WhiteboardView(context), context);
+#else
+        return new AgoraClient(options, new global::Net.Agora.Whiteboard.iOS.WhiteBoardView());
+#endif
+#elif ANDROID && !AGORA_SIGNALING
         return new AgoraClient(
             options,
             AndroidContext ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set."));
@@ -157,7 +203,239 @@ public static class SmokeTests
     private static AgoraClient Client =>
         _client ?? throw new InvalidOperationException("the client has not been constructed yet.");
 
-#if AGORA_CHAT
+#if AGORA_FASTBOARD
+    private static void MissingAppIdIsRejected()
+    {
+        // The same four identifiers the whiteboard client asks for — Fastboard is a UI layer over
+        // the same service — each checked before any native call.
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions()),
+            "a missing App Identifier");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppIdentifier = AppId }),
+            "a missing room UUID");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppIdentifier = AppId, RoomUuid = ChannelId }),
+            "a missing room token");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppIdentifier = AppId, RoomUuid = ChannelId, RoomToken = AppId }),
+            "a missing user id");
+    }
+
+    private static void ConstructsTheClient()
+    {
+        // On iOS this is the check with real weight: constructing reaches the Objective-C shim,
+        // which reaches Fastboard, which reaches the whiteboard SDK — three Swift and Objective-C
+        // layers linked out of one static library. A mangled name or a missing symbol shows up
+        // here as a launch-time crash rather than a build error.
+        _client = CreateClient(Options());
+
+        Assert(!Client.IsJoined, "IsJoined is true before any join was attempted.");
+    }
+
+    private static void DrawBeforeJoinIsRejected()
+    {
+        Throws<AgoraClientException>(
+            () => Client.SetTool(AgoraFastboardTool.Pencil, color: 0xFF0000),
+            "a tool change before any join");
+        Throws<AgoraClientException>(() => Client.Undo(), "an undo before any join");
+    }
+
+    private static async Task CancellationIsDistinctFromTimeout()
+    {
+        using var cancelSoon = new CancellationTokenSource();
+
+        var join = Client.JoinAsync(cancelSoon.Token);
+        cancelSoon.Cancel();
+
+        await ThrowsAsync<OperationCanceledException>(
+            () => join,
+            "a join cancelled through its own token");
+    }
+
+    private static async Task LoginFailsWithinTimeout()
+    {
+        var phases = new List<AgoraFastboardPhase>();
+        void OnPhase(object? sender, AgoraFastboardPhaseEventArgs e)
+        {
+            lock (phases)
+            {
+                phases.Add(e.Phase);
+            }
+            Report($"phase: {e.Phase}");
+        }
+
+        var started = DateTimeOffset.UtcNow;
+
+        Client.PhaseChanged += OnPhase;
+        try
+        {
+            var error = await ThrowsAsync<AgoraClientException>(
+                () => Client.JoinAsync(),
+                "a join with an unregistered room");
+
+            Report($"failed after {(DateTimeOffset.UtcNow - started).TotalSeconds:0.0}s: {error.Message}");
+        }
+        finally
+        {
+            Client.PhaseChanged -= OnPhase;
+        }
+
+        lock (phases)
+        {
+            Report(phases.Count > 0
+                ? $"observed {phases.Count} phase change(s)"
+                : "no phase change before the rejection");
+        }
+
+        Assert(!Client.IsJoined, "IsJoined is true after a join that should have failed.");
+    }
+
+    private static void LogoutWithoutALoginIsANoOp()
+    {
+        Client.Disconnect();
+        Client.Disconnect();
+
+        Assert(!Client.IsJoined, "IsJoined is true after Disconnect.");
+    }
+
+    private static void DisposesCleanly()
+    {
+        Client.Dispose();
+        // IDisposable.Dispose must tolerate being called more than once.
+        Client.Dispose();
+
+        Assert(!Client.IsJoined, "IsJoined is true after Dispose.");
+    }
+
+    private static AgoraClientOptions Options() => new()
+    {
+        AppIdentifier = AppId,
+        RoomUuid = ChannelId,
+        RoomToken = AppId,
+        Uid = UserId,
+        Timeout = JoinTimeout,
+    };
+#elif AGORA_WHITEBOARD
+    private static void MissingAppIdIsRejected()
+    {
+        // The Interactive Whiteboard asks for four identifiers, from two different places: the App
+        // Identifier from the Agora Console, and the room UUID, token and user id from your own
+        // server's call to the whiteboard REST API. Each is checked before any native call.
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions()),
+            "a missing App Identifier");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppIdentifier = AppId }),
+            "a missing room UUID");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppIdentifier = AppId, RoomUuid = ChannelId }),
+            "a missing room token");
+        Throws<ArgumentException>(
+            () => CreateClient(new AgoraClientOptions { AppIdentifier = AppId, RoomUuid = ChannelId, RoomToken = AppId }),
+            "a missing user id");
+    }
+
+    private static void ConstructsTheClient()
+    {
+        // Constructing at all is the check: it creates the SDK's own board view — a WebView on
+        // Android, a WKWebView on iOS — and hands it to the SDK, which is where a binding that
+        // failed to link, or a missing JavaScript bundle's package, would show up.
+        _client = CreateClient(Options());
+
+        Assert(!Client.IsJoined, "IsJoined is true before any join was attempted.");
+    }
+
+    private static void DrawBeforeJoinIsRejected()
+    {
+        // The facade's own guard rather than the SDK's: neither SDK has a room object to send the
+        // state change to before a join, and both would throw a null reference. This is the one
+        // place the facade is stricter than the thing it wraps, so it is worth pinning.
+        Throws<AgoraClientException>(
+            () => Client.SetTool(AgoraWhiteboardTool.Pencil, color: 0xFF0000),
+            "a tool change before any join");
+        Throws<AgoraClientException>(() => Client.Undo(), "an undo before any join");
+    }
+
+    private static async Task CancellationIsDistinctFromTimeout()
+    {
+        using var cancelSoon = new CancellationTokenSource();
+
+        var join = Client.JoinAsync(cancelSoon.Token);
+
+        // Cancelled synchronously, before any response could arrive, so "the caller's token wins"
+        // is deterministic rather than a race against service latency.
+        cancelSoon.Cancel();
+
+        await ThrowsAsync<OperationCanceledException>(
+            () => join,
+            "a join cancelled through its own token");
+    }
+
+    private static async Task LoginFailsWithinTimeout()
+    {
+        var phases = new List<AgoraWhiteboardPhase>();
+        void OnPhase(object? sender, AgoraWhiteboardPhaseEventArgs e)
+        {
+            lock (phases)
+            {
+                phases.Add(e.Phase);
+            }
+            Report($"phase: {e.Phase}");
+        }
+
+        var started = DateTimeOffset.UtcNow;
+
+        Client.PhaseChanged += OnPhase;
+        try
+        {
+            var error = await ThrowsAsync<AgoraClientException>(
+                () => Client.JoinAsync(),
+                "a join with an unregistered room");
+
+            Report($"failed after {(DateTimeOffset.UtcNow - started).TotalSeconds:0.0}s: {error.Message}");
+        }
+        finally
+        {
+            Client.PhaseChanged -= OnPhase;
+        }
+
+        lock (phases)
+        {
+            Report(phases.Count > 0
+                ? $"observed {phases.Count} phase change(s)"
+                : "no phase change before the rejection");
+        }
+
+        Assert(!Client.IsJoined, "IsJoined is true after a join that should have failed.");
+    }
+
+    private static void LogoutWithoutALoginIsANoOp()
+    {
+        Client.Disconnect();
+        Client.Disconnect();
+
+        Assert(!Client.IsJoined, "IsJoined is true after Disconnect.");
+    }
+
+    private static void DisposesCleanly()
+    {
+        Client.Dispose();
+        // IDisposable.Dispose must tolerate being called more than once.
+        Client.Dispose();
+
+        Assert(!Client.IsJoined, "IsJoined is true after Dispose.");
+    }
+
+    private static AgoraClientOptions Options() => new()
+    {
+        AppIdentifier = AppId,
+        RoomUuid = ChannelId,
+        RoomToken = AppId,
+        Uid = UserId,
+        Timeout = JoinTimeout,
+    };
+#elif AGORA_CHAT
     private static void MissingAppIdIsRejected()
     {
         // The one call in this façade's own code (rather than the bindings') that validates before

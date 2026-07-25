@@ -92,4 +92,10 @@ jobs:
             for id in Net.Agora.Chat.Maui Net.Agora.Chat; do
               echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_CHAT_PACKAGE_VERSION}-${s})"
             done
+            for id in Net.Agora.Whiteboard.Maui Net.Agora.Whiteboard; do
+              echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_WHITEBOARD_PACKAGE_VERSION}-${s})"
+            done
+            for id in Net.Agora.Fastboard.Maui Net.Agora.Fastboard; do
+              echo "- [${id}](https://www.nuget.org/packages/${id}/${AGORA_FASTBOARD_PACKAGE_VERSION}-${s})"
+            done
           } >> "$GITHUB_STEP_SUMMARY"

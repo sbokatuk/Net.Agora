@@ -10,12 +10,12 @@ Three repositories, each independently versioned and released — see the root
 [README](../README.md#how-this-repository-works):
 
 - **[`Net.Agora.Android`](https://github.com/sbokatuk/Net.Agora.Android)** — the raw Android
-  bindings (Video, Voice, Signaling and Chat).
+  bindings (Video, Voice, Signaling, Chat, Whiteboard and — on Android only — IoT).
 - **[`Net.Agora.iOS`](https://github.com/sbokatuk/Net.Agora.iOS)** — the raw iOS bindings (Video,
-  Voice, Signaling and Chat).
+  Voice, Signaling, Chat and Whiteboard).
 - **`Net.Agora`** (this repository) — the façades (`Net.Agora.Video`, `Net.Agora.Video.Maui`,
   `Net.Agora.Voice`, `Net.Agora.Voice.Maui`, `Net.Agora.Signaling`, `Net.Agora.Chat`,
-  `Net.Agora.Chat.Maui`) only. It binds no native code itself.
+  `Net.Agora.Chat.Maui`, `Net.Agora.Whiteboard`, `Net.Agora.Whiteboard.Maui`, `Net.Agora.Fastboard`, `Net.Agora.Fastboard.Maui`) only. It binds no native code itself.
 
 **This repository binds nothing.** No `ApiDefinition.cs`, no `.aar`, no
 `AndroidLibrary`/`NativeReference` — each façade depends on its platform packages the same way any
@@ -42,18 +42,24 @@ src/
                                  nothing platform-specific to hide
   Net.Agora.Chat/               the cross-platform Chat (IM) client
   Net.Agora.Chat.Maui/          the MAUI platform glue (no view — chat renders nothing)
+  Net.Agora.Whiteboard/         the cross-platform Interactive Whiteboard client
+  Net.Agora.Whiteboard.Maui/    the MAUI board view + its handlers
+  Net.Agora.Fastboard/          the cross-platform Fastboard client (the board with its toolbar)
+  Net.Agora.Fastboard.Maui/     the MAUI Fastboard view + its handlers
 tests/
   Net.Agora.PackageTests/       asserts this repository's own packages' shape and pinned dependencies
   Net.Agora.UnitTests/          the platform-neutral façade logic — options validation, the
                                  event-arg types, for every product — no device, no packages, no workload
   Net.Agora.DeviceTests/        on-device smoke checks against a packed façade package — one
                                  project, an Android and an iOS head, same checks on both; the
-                                 product is selected with -p:AgoraDeviceProduct=Video|Voice|Signaling|Chat
+                                 product is selected with -p:AgoraDeviceProduct=Video|Voice|Signaling|Chat|Whiteboard|Fastboard
 samples/
   Net.Agora.Sample/             the MAUI sample app (Video)
   Net.Agora.Sample.Voice/       the MAUI sample app (Voice)
   Net.Agora.Sample.Signaling/   the MAUI sample app (Signaling — a tiny chat room)
   Net.Agora.Sample.Chat/        the MAUI sample app (Chat — one-to-one messaging)
+  Net.Agora.Sample.Whiteboard/  the MAUI sample app (Interactive Whiteboard — draw together)
+  Net.Agora.Sample.Fastboard/   the MAUI sample app (Fastboard — the same board with its toolbar)
 assets/                         the package icon
 Net.Agora.sln                   every project above except the sample, which consumes packed
                                  packages from ./artifacts and would break a plain restore
@@ -92,12 +98,16 @@ source):
 ./build/BuildNugets.sh voice                          # same, for the Voice packages
 ./build/BuildNugets.sh signaling                      # same, for Net.Agora.Signaling
 ./build/BuildNugets.sh chat                          # same, for the Chat packages
+./build/BuildNugets.sh whiteboard                    # same, for the Whiteboard packages
+./build/BuildNugets.sh fastboard                     # same, for the Fastboard packages
 ./build/BuildNugets.sh video --suffix beta.12.34      # prerelease: the product's version plus a suffix
+./build/BuildNugets.sh --track rtc                    # a whole release track at once (rtc = video + voice)
 ```
 
 There is no way to pass a whole version: the products sit on independent native version lines
-(RTC 4.6.x, RTM 2.2.x, Chat 1.4.x), so each packs at its own pin and releases publish whatever the pins say —
-see the release workflow.
+(RTC 4.6.x, RTM 2.2.x, Chat 1.4.x, Whiteboard 2.16.x, Fastboard 1.4.x), so each packs at its own
+pin. `--track` packs every product on one release track (see [`build/tracks.tsv`](../build/tracks.tsv)),
+which is how one tag publishes a whole track — see the release workflow.
 
 Output lands in `./artifacts`, which `NuGet.config` exposes as a package source so the tests and
 the sample app resolve the packages that were just built rather than whatever is on nuget.org.
@@ -150,7 +160,7 @@ exercises what actually ships.
 | --- | --- | --- |
 | [`build.yml`](../.github/workflows/build.yml) | called by the other two | Runs the unit tests, packs the Video façade packages, validates the package layout, runs the device checks on an iOS simulator and an Android emulator, builds the sample |
 | [`pr.yml`](../.github/workflows/pr.yml) | pull requests | Builds `<version>-beta.<pr>.<run>` |
-| [`release.yml`](../.github/workflows/release.yml) | `v*` tags | Publishes the tagged version and creates the GitHub release |
+| [`release.yml`](../.github/workflows/release.yml) | per-track tags (`v*`, `chat-v*`, `whiteboard-v*`, `fastboard-v*`, `signaling-v*`) | Resolves the tag to its track, builds and publishes only that track, creates the GitHub release |
 
 `unit-tests` runs on `ubuntu-latest` with no dependency on `pack`, since `Net.Agora.UnitTests`
 needs neither a packed package nor a mobile workload — it is the fastest failure signal in the
@@ -173,5 +183,32 @@ OIDC token for a short-lived API key, so there is no long-lived key in repositor
 matching the name recorded on the nuget.org policy (`nuget.org` in both workflows here). Policies
 are scoped to a single workflow file, so `pr.yml` and `release.yml` each need their own — and each
 of the three repositories needs its own set of policies, since they publish independently.
+
+## Releasing one track
+
+The products here sit on unrelated version lines, so a release names one track, not a repository
+snapshot. [`build/tracks.tsv`](../build/tracks.tsv) is the source of truth — track, tag-prefix,
+products — read by [`build/resolve-track.sh`](../build/resolve-track.sh) (tag → track),
+`BuildNugets.sh --track`, and `release.yml`. The main RTC track uses a bare `v` tag; every other
+prefixes its product name:
+
+| Track | Tag | Publishes |
+| --- | --- | --- |
+| rtc | `v4.6.2.4` | `Net.Agora.Video` / `.Maui`, `Net.Agora.Voice` / `.Maui` |
+| chat | `chat-v1.4.0.1` | `Net.Agora.Chat` / `.Maui` |
+| signaling | `signaling-v2.2.6.1` | `Net.Agora.Signaling` |
+| whiteboard | `whiteboard-v2.16.137.1` | `Net.Agora.Whiteboard` / `.Maui` |
+| fastboard | `fastboard-v1.4.5.1` | `Net.Agora.Fastboard` / `.Maui` |
+
+Pushing one of these tags builds only that track (skipping the CI-only jobs, which the merged
+commit ran on its PR) and publishes its packages, with notes from
+`docs/release-notes/<tag>.md`. The tag is a label — each package packs at its own pin, and the push
+uses `--skip-duplicate` — so re-tagging a track whose pins did not all move is a no-op for the
+unchanged ones.
+
+Order across repositories still holds: publish `Net.Agora.Android` and `Net.Agora.iOS`'s track
+first, then this repository's, since the façade restores its platform packages from nuget.org. A
+`fastboard-v*` release also needs its `whiteboard-v*` track already published, since Fastboard
+depends on the whiteboard binding.
 
 [trusted-publishing]: https://learn.microsoft.com/nuget/nuget-org/trusted-publishing

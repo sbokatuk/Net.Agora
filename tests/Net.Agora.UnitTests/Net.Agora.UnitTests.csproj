@@ -40,6 +40,12 @@
     <Compile Include="../../src/Net.Agora.Chat/AgoraChatOptions.cs" Link="Facade/AgoraChatOptions.cs" />
     <Compile Include="../../src/Net.Agora.Chat/AgoraChatEvents.cs" Link="Facade/AgoraChatEvents.cs" />
     <Compile Include="../../src/Net.Agora.Chat/IAgoraChatClient.cs" Link="Facade/IAgoraChatClient.cs" />
+    <Compile Include="../../src/Net.Agora.Whiteboard/AgoraWhiteboardOptions.cs" Link="Facade/AgoraWhiteboardOptions.cs" />
+    <Compile Include="../../src/Net.Agora.Whiteboard/AgoraWhiteboardEvents.cs" Link="Facade/AgoraWhiteboardEvents.cs" />
+    <Compile Include="../../src/Net.Agora.Whiteboard/IAgoraWhiteboardClient.cs" Link="Facade/IAgoraWhiteboardClient.cs" />
+    <Compile Include="../../src/Net.Agora.Fastboard/AgoraFastboardOptions.cs" Link="Facade/AgoraFastboardOptions.cs" />
+    <Compile Include="../../src/Net.Agora.Fastboard/AgoraFastboardEvents.cs" Link="Facade/AgoraFastboardEvents.cs" />
+    <Compile Include="../../src/Net.Agora.Fastboard/IAgoraFastboardClient.cs" Link="Facade/IAgoraFastboardClient.cs" />
   </ItemGroup>
 
 </Project>

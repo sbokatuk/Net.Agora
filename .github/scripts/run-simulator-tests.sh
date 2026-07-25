@@ -7,7 +7,8 @@ set -euo pipefail
 #
 # Usage: run-simulator-tests.sh VERSION [TARGET_FRAMEWORK] [PRODUCT]
 #
-# PRODUCT is Video (default), Voice, Signaling or Chat — which façade package the suite consumes. One run
+# PRODUCT is Video (default), Voice, Signaling, Chat, Whiteboard or Fastboard — which façade package the suite
+# consumes. One run
 # exercises one product: their platform packages carry the same native artifacts, so a single
 # app holds one of them.
 
@@ -57,6 +58,8 @@ rm -rf "${HOME}/.nuget/packages/net.agora.video.ios/${NET_AGORA_VIDEO_IOS_VERSIO
 rm -rf "${HOME}/.nuget/packages/net.agora.voice.ios/${NET_AGORA_VOICE_IOS_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.signaling.ios/${NET_AGORA_SIGNALING_IOS_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.chat.ios/${NET_AGORA_CHAT_IOS_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.whiteboard.ios/${NET_AGORA_WHITEBOARD_IOS_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.fastboard.ios/${NET_AGORA_FASTBOARD_IOS_VERSION}"
 
 # The app's own intermediate output has to go too, not just the NuGet cache. The iOS package's
 # native payload is extracted out of the package into obj/ and copied into the .app, and neither
@@ -66,18 +69,18 @@ rm -rf "${REPO_ROOT}/tests/Net.Agora.DeviceTests/obj" \
        "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin"
 
 echo "==> building device tests (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version})"
-# Debug, not Release - the same call the sample build makes, and for the same reason: a Release
-# build AOT-compiles and links every assembly, which costs real runner time for no additional
-# signal on whether the package restores, resolves and links correctly - which is what this suite
-# verifies.
+# Release, so the checks run against the same trimmed and AOT-compiled build a consumer ships - the
+# configuration where a binding that restores fine in Debug can still fail to link. It costs more
+# runner time than Debug, but unlike the Android emulator suite an iOS simulator Release build
+# still starts and runs, so this stays a single build-and-run rather than a split build/link check.
 ( cd "${SDK_DIR}" && dotnet build "${PROJECT}" \
-    --configuration Debug \
+    --configuration Release \
     -p:AgoraDeviceProduct="${PRODUCT}" \
     -p:AgoraPackageVersion="${VERSION}" \
     -p:AgoraDeviceTargetFramework="${TARGET_FRAMEWORK}" \
     -p:RuntimeIdentifier="${SIMULATOR_RID}" )
 
-APP_PATH="$(find "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin/Debug/${TARGET_FRAMEWORK}/${SIMULATOR_RID}" \
+APP_PATH="$(find "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin/Release/${TARGET_FRAMEWORK}/${SIMULATOR_RID}" \
     -maxdepth 1 -name '*.app' -print -quit)"
 if [ -z "${APP_PATH}" ]; then
     echo "::error::no .app bundle was produced"

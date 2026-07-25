@@ -1,9 +1,11 @@
 name: build
 
-# Reusable pipeline: packs the Video façade packages (Net.Agora.Video, Net.Agora.Video.Maui) at a
-# given version, validates them, runs the unit tests and the device checks on both an iOS
-# simulator and an Android emulator, and builds the sample against the packed packages. Callers
-# (pr.yml, release.yml) decide the version and what to do with the result.
+# Reusable pipeline: packs the façade packages at a given version, validates them, runs the unit
+# tests and the device checks on both an iOS simulator and an Android emulator, and builds each
+# sample against the packed packages. The pack job only packs (and uploads the artifact) so its
+# dependents can start as soon as the packages exist; the sample build/link checks run as their own
+# per-product, per-platform matrix rather than a serial tail of pack. Callers (pr.yml, release.yml)
+# decide the version and what to do with the result.
 #
 # This repository builds no raw platform binding anymore: Net.Agora.Video.Android and
 # Net.Agora.Video.iOS are published from sbokatuk/Net.Agora.Android and sbokatuk/Net.Agora.iOS, and
@@ -19,6 +21,16 @@ on:
           Optional prerelease suffix (e.g. beta.12.34) appended to every product's own version.
           The products sit on independent native version lines (RTC 4.6.x, RTM 2.2.x), so there
           is no single version to stamp — each packs at its own pin from Directory.Build.props.
+        required: false
+        default: ''
+        type: string
+      track:
+        description: >
+          Restrict the build to one release track — rtc, signaling, chat, whiteboard or fastboard
+          (see build/tracks.tsv). Packs only that track's products and skips the CI-only jobs
+          (unit-tests, validate, e2e), which the pull request that merged this commit already ran.
+          Empty, the default, builds and validates the whole repository — what push and
+          pull_request want. Releases set it, so a per-track tag publishes only its own track.
         required: false
         default: ''
         type: string
@@ -54,6 +66,8 @@ jobs:
     # No dependency on pack: Net.Agora.UnitTests links the platform-neutral façade source directly
     # (see its own csproj) rather than referencing a packed package, so it needs neither ./artifacts
     # nor a mobile workload — this is the fastest failure signal in the whole pipeline.
+    # Off on a scoped track release: the tagged commit already ran it on its PR.
+    if: ${{ inputs.track == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -111,13 +125,16 @@ jobs:
 
       - name: Pack
         run: |
-          for product in video voice signaling chat; do
-            if [ -n "${{ inputs.suffix }}" ]; then
-              ./build/BuildNugets.sh "$product" --suffix "${{ inputs.suffix }}"
-            else
-              ./build/BuildNugets.sh "$product"
-            fi
-          done
+          suffix=""
+          [ -n "${{ inputs.suffix }}" ] && suffix="--suffix ${{ inputs.suffix }}"
+          if [ -n "${{ inputs.track }}" ]; then
+            # One track's products, from one call — see build/tracks.tsv.
+            ./build/BuildNugets.sh --track "${{ inputs.track }}" $suffix
+          else
+            for product in video voice signaling chat whiteboard fastboard; do
+              ./build/BuildNugets.sh "$product" $suffix
+            done
+          fi
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
@@ -129,48 +146,112 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Build the samples against the packed packages
+  build-samples:
+    name: sample build (${{ matrix.product }}, ${{ matrix.platform }})
+    needs: pack
+    # Off on a scoped track release: a CI-only build/link check, and the scoped pack packed only the
+    # tagged track's products - the other samples could not restore at this tag. The merged commit
+    # already ran this on its pull request.
+    if: ${{ inputs.track == '' }}
+    # Android needs no Apple toolchain, so its leg runs on Linux (faster and cheaper); iOS must have
+    # Xcode. Chosen per matrix leg — see the include block below.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # fail-fast off: one product or platform failing to link should not cancel the others. The
+      # whole point of the check is to see which façades are consumable, so a partial result is a
+      # result - "Fastboard/ios only" and "every product" point at very different causes.
+      fail-fast: false
+      matrix:
+        # One leg per product per platform. Each proves its façade is consumable: it restores (the
+        # platform packages coming from nuget.org at the pinned versions), resolves to the right
+        # platform binding for the target framework, and links under the Release toolchain (R8 on
+        # Android, AOT on iOS) - where a binding that restores fine in Debug can still fail to link.
+        # This was one serial step at the tail of the pack job; the six iOS Release AOT builds run
+        # ~25 min each, so back to back they dominated the whole pipeline. Split out, they run
+        # concurrently, and pack's dependents (validate, e2e) no longer wait on them.
+        product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
+        platform: [android, ios]
+        include:
+          # os/tfm/build-args attach to every combination whose platform matches (GitHub merges an
+          # include entry into the matrix legs that already share its keys). The target frameworks
+          # are the bands the pack job's original loop exercised.
+          - platform: android
+            os: ubuntu-latest
+            tfm: net9.0-android35.0
+          - platform: ios
+            os: macos-15
+            tfm: net9.0-ios18.0
+            # Pinned to a simulator runtime identifier. These samples are built, never launched, so
+            # Release's startup-time AOT concerns do not apply.
+            build-args: -p:RuntimeIdentifier=iossimulator-arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        if: ${{ matrix.platform == 'ios' }}
+        run: ./.github/scripts/select-xcode.sh
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # The samples build at net9 on both platforms, so the .NET 9 band is enough - no net10
+          # scratch global.json as the pack/e2e jobs need.
+          dotnet-version: 9.0.x
+
+      - name: Install workloads
+        # The samples are MAUI apps, so the maui-<platform> workload is required on top of the raw
+        # platform one - this is what makes the check exercise the .Maui packages the device tests
+        # deliberately skip.
+        #
+        # The samples multi-target BOTH platforms' target frameworks, and `dotnet build -f` still
+        # restores every one of them - so restore needs every platform's workload installed, not
+        # just the one being built (NETSDK1147 otherwise). On macOS that means all four. On Linux
+        # the iOS workload does not exist at all (NETSDK1178, "build the project on another
+        # operating system"), which no workload install can fix - the sample csprojs instead drop
+        # the iOS target frameworks from TargetFrameworks when restoring on Linux.
         run: |
-          # Proves each façade is actually consumable: it restores (the platform packages coming
-          # from nuget.org at the pinned versions), resolves to the right platform binding per
-          # target framework, and the iOS half links.
-          #
-          # Debug, and iOS pinned to a simulator runtime identifier: an iOS Release build trims and
-          # AOT-compiles, which with the ~25 MB AgoraRtcKit framework costs real runner time for no
-          # added signal. Debug still restores, resolves and links, which is what this step is for.
+          if [ "${{ matrix.platform }}" = "ios" ]; then
+            dotnet workload install ios android maui-ios maui-android
+          else
+            dotnet workload install android maui-android
+          fi
+
+      - name: Set up the Android SDK
+        if: ${{ matrix.platform == 'android' }}
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35'
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts
+
+      - name: Build the ${{ matrix.product }} sample
+        run: |
           . ./build/pins.sh
-          s="${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
-
-          for tfm_args in "net9.0-android35.0" "net9.0-ios18.0 -p:RuntimeIdentifier=iossimulator-arm64"; do
-            set -- $tfm_args
-            echo "::group::sample $1"
-            dotnet build samples/Net.Agora.Sample \
-              -c Debug -f "$@" \
-              -p:AgoraVideoPackageVersion="${AGORA_VIDEO_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-
-            echo "::group::voice sample $1"
-            dotnet build samples/Net.Agora.Sample.Voice \
-              -c Debug -f "$@" \
-              -p:AgoraVoicePackageVersion="${AGORA_VOICE_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-
-            echo "::group::signaling sample $1"
-            dotnet build samples/Net.Agora.Sample.Signaling \
-              -c Debug -f "$@" \
-              -p:AgoraSignalingPackageVersion="${AGORA_SIGNALING_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-
-            echo "::group::chat sample $1"
-            dotnet build samples/Net.Agora.Sample.Chat \
-              -c Debug -f "$@" \
-              -p:AgoraChatPackageVersion="${AGORA_CHAT_PACKAGE_VERSION}${s}"
-            echo "::endgroup::"
-          done
+          # product -> its sample project and its own version (products sit on independent native
+          # version lines, so each carries its own version property). Mirrors the e2e jobs' case.
+          case "${{ matrix.product }}" in
+            Video)      project=Net.Agora.Sample;            base="${AGORA_VIDEO_PACKAGE_VERSION}";      prop=AgoraVideoPackageVersion ;;
+            Voice)      project=Net.Agora.Sample.Voice;      base="${AGORA_VOICE_PACKAGE_VERSION}";      prop=AgoraVoicePackageVersion ;;
+            Signaling)  project=Net.Agora.Sample.Signaling;  base="${AGORA_SIGNALING_PACKAGE_VERSION}";  prop=AgoraSignalingPackageVersion ;;
+            Chat)       project=Net.Agora.Sample.Chat;       base="${AGORA_CHAT_PACKAGE_VERSION}";       prop=AgoraChatPackageVersion ;;
+            Whiteboard) project=Net.Agora.Sample.Whiteboard; base="${AGORA_WHITEBOARD_PACKAGE_VERSION}"; prop=AgoraWhiteboardPackageVersion ;;
+            Fastboard)  project=Net.Agora.Sample.Fastboard;  base="${AGORA_FASTBOARD_PACKAGE_VERSION}";  prop=AgoraFastboardPackageVersion ;;
+          esac
+          version="${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
+          dotnet build "samples/${project}" \
+            -c Release -f "${{ matrix.tfm }}" ${{ matrix.build-args }} \
+            -p:"${prop}=${version}"
 
   validate:
     name: validate packages
     needs: pack
+    # Skipped on a scoped track release: the package tests assert the whole product set, which a
+    # single-track pack does not produce — and the merged commit already ran them on its PR.
+    if: ${{ inputs.track == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -202,6 +283,8 @@ jobs:
     name: simulator checks (${{ matrix.product }}, ${{ matrix.target-framework }})
     timeout-minutes: 45
     needs: pack
+    # Off on a scoped track release — the tagged commit was device-tested on its PR.
+    if: ${{ inputs.track == '' }}
     runs-on: macos-15
     strategy:
       # fail-fast off: when one target framework breaks it is worth knowing whether the other did
@@ -211,7 +294,7 @@ jobs:
         # One leg per product: the Video and Voice façades' platform packages carry the same
         # native artifacts, so a single device test app holds exactly one of them — and Signaling
         # is a different product entirely.
-        product: [Video, Voice, Signaling, Chat]
+        product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
         target-framework: ${{ fromJSON(inputs.e2e-ios-target-frameworks) }}
     steps:
       - uses: actions/checkout@v4
@@ -250,6 +333,8 @@ jobs:
             Voice) base="${AGORA_VOICE_PACKAGE_VERSION}" ;;
             Signaling) base="${AGORA_SIGNALING_PACKAGE_VERSION}" ;;
             Chat)      base="${AGORA_CHAT_PACKAGE_VERSION}" ;;
+            Whiteboard) base="${AGORA_WHITEBOARD_PACKAGE_VERSION}" ;;
+            Fastboard) base="${AGORA_FASTBOARD_PACKAGE_VERSION}" ;;
           esac
           version="${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
           ./.github/scripts/run-simulator-tests.sh "${version}" "${{ matrix.target-framework }}" "${{ matrix.product }}"
@@ -267,11 +352,13 @@ jobs:
     name: emulator checks (${{ matrix.product }}, ${{ matrix.target-framework }})
     timeout-minutes: 60
     needs: pack
+    # Off on a scoped track release — the tagged commit was device-tested on its PR.
+    if: ${{ inputs.track == '' }}
     strategy:
       fail-fast: false
       matrix:
         # One leg per product — see the iOS job's matrix comment.
-        product: [Video, Voice, Signaling, Chat]
+        product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
         target-framework: ${{ fromJSON(inputs.e2e-android-target-frameworks) }}
     # Linux, unlike the pack job: the emulator needs KVM, which the macOS runners do not have, and
     # the Android head of the device app needs no Apple toolchain to build.
@@ -345,6 +432,8 @@ jobs:
             Voice) base="${AGORA_VOICE_PACKAGE_VERSION}" ;;
             Signaling) base="${AGORA_SIGNALING_PACKAGE_VERSION}" ;;
             Chat)      base="${AGORA_CHAT_PACKAGE_VERSION}" ;;
+            Whiteboard) base="${AGORA_WHITEBOARD_PACKAGE_VERSION}" ;;
+            Fastboard) base="${AGORA_FASTBOARD_PACKAGE_VERSION}" ;;
           esac
           echo "AGORA_E2E_VERSION=${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}" >> "$GITHUB_ENV"
 

@@ -10,7 +10,8 @@ set -euo pipefail
 #
 # Usage: run-emulator-tests.sh VERSION [TARGET_FRAMEWORK] [PRODUCT]
 #
-# PRODUCT is Video (default), Voice, Signaling or Chat — which façade package the suite consumes. One run
+# PRODUCT is Video (default), Voice, Signaling, Chat, Whiteboard or Fastboard — which façade package the suite
+# consumes. One run
 # exercises one product: their platform packages carry the same native artifacts, so a single
 # app holds one of them.
 
@@ -69,14 +70,29 @@ rm -rf "${HOME}/.nuget/packages/net.agora.video.android/${NET_AGORA_VIDEO_ANDROI
 rm -rf "${HOME}/.nuget/packages/net.agora.voice.android/${NET_AGORA_VOICE_ANDROID_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.signaling.android/${NET_AGORA_SIGNALING_ANDROID_VERSION}"
 rm -rf "${HOME}/.nuget/packages/net.agora.chat.android/${NET_AGORA_CHAT_ANDROID_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.whiteboard.android/${NET_AGORA_WHITEBOARD_ANDROID_VERSION}"
+rm -rf "${HOME}/.nuget/packages/net.agora.fastboard.android/${NET_AGORA_FASTBOARD_ANDROID_VERSION}"
 
 rm -rf "${REPO_ROOT}/tests/Net.Agora.DeviceTests/obj" \
        "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin"
 
-echo "==> building device tests (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version})"
-# Debug, not Release. Release AOT-compiles every assembly, and an AOT image built against an
-# unlinked assembly set disagrees with what the runtime loads - the app aborts on startup before a
-# single check runs. Debug also skips the R8 shrinking this app has to avoid anyway.
+echo "==> Release build/link check (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version})"
+# A Release build as a build-and-link check only - not installed, not run. Release turns on the
+# managed linker/trimmer, R8 and AOT, and this proves the Agora binding survives all three and
+# still produces an .apk, which a Debug build (none of them on) never exercises. It deliberately
+# stops at the build and does not launch the app: the AOT image is compiled against the trimmed
+# assembly set and disagrees with what the runtime loads, so a Release app aborts on startup before
+# a single check runs - which is why the e2e run below is a separate Debug build.
+( cd "${SDK_DIR}" && dotnet build "${PROJECT}" \
+    --configuration Release \
+    -p:AgoraDeviceProduct="${PRODUCT}" \
+    -p:AgoraPackageVersion="${VERSION}" \
+    -p:AgoraDeviceTargetFramework="${TARGET_FRAMEWORK}" \
+    -p:RuntimeIdentifier="${DEVICE_RID}" )
+
+echo "==> building device tests for the e2e run (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version})"
+# Debug for the run, for the reason above: a Release build aborts on startup, so the checks can
+# only run against a Debug build. This is the build that gets installed and exercised.
 ( cd "${SDK_DIR}" && dotnet build "${PROJECT}" \
     --configuration Debug \
     -p:AgoraDeviceProduct="${PRODUCT}" \

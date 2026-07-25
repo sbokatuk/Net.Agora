@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!--
-      Which façade to exercise (Video, Voice, Signaling or Chat) and which of its target frameworks. Both go
+      Which façade to exercise (Video, Voice, Signaling, Chat, Whiteboard or Fastboard) and which of its target frameworks. Both go
       through properties of our own: overriding TargetFramework directly on the command line
       breaks restore, and the two façades cannot be referenced together — their platform packages
       carry the same native artifacts, so one app holds one of them.
@@ -14,6 +14,8 @@
     <AgoraDeviceProduct Condition=" '$(AgoraDeviceProduct)' == '' ">Video</AgoraDeviceProduct>
     <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Signaling' ">$(DefineConstants);AGORA_SIGNALING</DefineConstants>
     <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Chat' ">$(DefineConstants);AGORA_CHAT</DefineConstants>
+    <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Whiteboard' ">$(DefineConstants);AGORA_WHITEBOARD</DefineConstants>
+    <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Fastboard' ">$(DefineConstants);AGORA_FASTBOARD</DefineConstants>
     <AgoraDeviceTargetFramework Condition=" '$(AgoraDeviceTargetFramework)' == '' ">net9.0-ios18.0</AgoraDeviceTargetFramework>
     <TargetFramework>$(AgoraDeviceTargetFramework)</TargetFramework>
     <DefineConstants Condition=" '$(AgoraDeviceProduct)' == 'Voice' ">$(DefineConstants);AGORA_VOICE</DefineConstants>
@@ -104,6 +106,8 @@
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Voice' ">$(AgoraVoiceIosVersion).$(AgoraBindingRevision)</AgoraPackageVersion>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Signaling' ">$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)</AgoraPackageVersion>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Chat' ">$(AgoraChatIosVersion).$(AgoraChatBindingRevision)</AgoraPackageVersion>
+    <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Whiteboard' ">$(AgoraWhiteboardIosVersion).$(AgoraWhiteboardBindingRevision)</AgoraPackageVersion>
+    <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' And '$(AgoraDeviceProduct)' == 'Fastboard' ">$(AgoraFastboardIosVersion).$(AgoraFastboardBindingRevision)</AgoraPackageVersion>
     <AgoraPackageVersion Condition=" '$(AgoraPackageVersion)' == '' ">$(VersionPrefix)</AgoraPackageVersion>
 
     <!--
@@ -116,6 +120,27 @@
 
   <ItemGroup>
     <PackageReference Include="Net.Agora.$(AgoraDeviceProduct)" Version="$(AgoraPackageVersion)" />
+  </ItemGroup>
+
+  <!--
+    Fastboard on Android only. Fastboard's transitive graph asks for two mutually-exclusive
+    Xamarin.AndroidX.Lifecycle.Common ranges and NuGet cannot unify them, so restore fails outright
+    with NU1107 before anything builds:
+
+        Fastboard.Android -> Whiteboard.Android -> WebKit -> Core 1.16.0.3
+            -> Lifecycle.Runtime 2.9.2.1 -> Lifecycle.Common [>= 2.9.2.1 && < 2.9.3]
+        Fastboard.Android -> AppCompat -> Fragment -> LiveData.Core 2.8.7.4
+            -> Lifecycle.Common [>= 2.8.7.4 && < 2.8.8]
+
+    Pin the newer one directly, which is exactly what NU1107 asks for ("Install/reference
+    Xamarin.AndroidX.Lifecycle.Common 2.9.2.1 directly to resolve this issue"). A direct reference
+    outranks every transitive vote, so the graph resolves to one version. Scoped to Fastboard: the
+    Whiteboard façade on its own does not pull the AppCompat side of the diamond, so its own leg
+    restores clean and must not be perturbed. net10's newer AndroidX graph reconciles without help,
+    but the pin is harmless there — 2.9.2.1 satisfies its constraints too.
+  -->
+  <ItemGroup Condition=" '$(AgoraDeviceProduct)' == 'Fastboard' And $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' ">
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.Common" Version="2.9.2.1" />
   </ItemGroup>
 
   <!--
@@ -159,5 +184,40 @@
     <PackageReference Include="@(AgoraExtension->'Net.Agora.Extensions.%(Identity).iOS')"
                       Version="$(AgoraExtensionIosVersion)" />
   </ItemGroup>
+
+  <!--
+    Fastboard on iOS under .NET 8 only. Fastboard's native bridge (libAgoraFastboardBridge.a) is a
+    Swift static library, so its objects force-load the Swift back-deployment compatibility shims:
+
+        Undefined symbols for architecture arm64:
+          "__swift_FORCE_LOAD_$_swiftCompatibility56"           (in AgoraFastboardBridge.o)
+          "__swift_FORCE_LOAD_$_swiftCompatibilityConcurrency"  (in AgoraFastboardBridge.o)
+        ld: symbol(s) not found for architecture arm64
+
+    The archive carries the autolink hints for these (LC_LINKER_OPTION: -lswiftCompatibility56 …);
+    they resolve as soon as the Swift toolchain's library directory is on the search path. The .NET
+    9 and .NET 10 iOS SDKs add it; the .NET 8 one only does so for macOS (see the hard-coded
+    "-L/usr/lib/swift" for _PlatformName == 'macOS' in Xamarin.Shared.Sdk.targets), which is why
+    this breaks on the net8 leg alone and no other product — Fastboard is the only one with a Swift
+    bridge. Mirror that macOS line for iOS: point the linker at the selected Xcode's Swift dir.
+
+    $(_SdkDevPath) is the developer dir of the Xcode the build resolved (select-xcode.sh on CI), so
+    this stays correct across image and patch-release rolls without a hard-coded /Applications path.
+    Injected via _CustomLinkFlags (the same item the macOS line feeds) in a target before the native
+    link, where $(_SdkDevPath) is populated. The internal target/property names are safe to depend
+    on here: this is scoped to net8, whose iOS SDK is frozen, and net9/net10 never enter the target.
+  -->
+  <Target Name="_AgoraLinkFastboardSwiftCompatShims"
+          BeforeTargets="_LinkNativeExecutable"
+          Condition=" '$(AgoraDeviceProduct)' == 'Fastboard' And $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' And $(TargetFramework.StartsWith('net8')) ">
+    <PropertyGroup>
+      <!-- The compat libs live under a per-platform subdir; pick it from the runtime identifier. -->
+      <_AgoraSwiftPlatformDir>iphoneos</_AgoraSwiftPlatformDir>
+      <_AgoraSwiftPlatformDir Condition="$(RuntimeIdentifier.Contains('simulator'))">iphonesimulator</_AgoraSwiftPlatformDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_CustomLinkFlags Include="-L$(_SdkDevPath)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(_AgoraSwiftPlatformDir)" />
+    </ItemGroup>
+  </Target>
 
 </Project>

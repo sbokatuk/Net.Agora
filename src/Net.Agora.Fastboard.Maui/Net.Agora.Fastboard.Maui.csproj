@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MAUI conveniences over Net.Agora.Fastboard: the video view and its handlers, plus the platform glue
+    a MAUI app would otherwise write by hand (the Android Activity lookup, and pulling the native
+    view out of a handler).
+
+    Separate from Net.Agora.Fastboard on purpose. Everything here needs Microsoft.Maui.Controls, and
+    forcing that on a plain .NET for Android or .NET for iOS consumer to get an Agora client would
+    be a poor trade.
+
+    No Mac Catalyst leg — see Net.Agora.Fastboard.csproj.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+
+    <AssemblyName>Net.Agora.Fastboard.Maui</AssemblyName>
+    <RootNamespace>Net.Agora.Fastboard.Maui</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!--
+      Explicit, unlike Net.Agora.Video.Maui: the repository-wide default VersionPrefix is the RTC
+      line, which this product is not on.
+    -->
+    <VersionPrefix>$(AgoraFastboardIosVersion).$(AgoraFastboardBindingRevision)</VersionPrefix>
+
+    <!--
+      UseMauiCore rather than UseMaui: this is a library of handlers and extensions, not an app,
+      and the full UseMaui brings in app-only targets (resource generation, splash screens) that
+      have nothing to do here.
+    -->
+    <UseMauiCore>true</UseMauiCore>
+    <UseMauiEssentials>true</UseMauiEssentials>
+    <SingleProject>true</SingleProject>
+
+    <!--
+      MA002: since .NET 8, UseMauiCore/UseMauiEssentials no longer implicitly add the matching
+      PackageReference — they still set up everything actually needed to build and pack this
+      project, and the suggested explicit PackageReference is version-pinned to a single band,
+      which fights the net8/net9/net10 multi-targeting here. Silencing the advisory rather than
+      the underlying behavior.
+    -->
+    <SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      $(Version) first, so an explicit -p:Version=... (what BuildNugets.sh passes — including
+      beta suffixes) pins the dependency to the façade being packed alongside. $(Version) is only
+      non-empty at evaluation time when passed like that, so a plain build (e.g. of the solution)
+      falls through to $(VersionPrefix) rather than producing an invalid empty pin '[]'.
+    -->
+    <AgoraFastboardDependencyVersion Condition=" '$(AgoraFastboardDependencyVersion)' == '' ">$(Version)</AgoraFastboardDependencyVersion>
+    <AgoraFastboardDependencyVersion Condition=" '$(AgoraFastboardDependencyVersion)' == '' And '$(VersionSuffix)' != '' ">$(VersionPrefix)-$(VersionSuffix)</AgoraFastboardDependencyVersion>
+    <AgoraFastboardDependencyVersion Condition=" '$(AgoraFastboardDependencyVersion)' == '' ">$(VersionPrefix)</AgoraFastboardDependencyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Net.Agora.Fastboard" Version="[$(AgoraFastboardDependencyVersion)]" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Net.Agora.Fastboard.Maui</PackageId>
+    <Title>.NET MAUI Fastboard view for Net.Agora.Fastboard.</Title>
+    <Description>The MAUI half of Net.Agora.Fastboard: an AgoraFastboardView that hosts the board and its toolbar, and CreateClient() to bind a client to it. It also hides the platforms' disagreement about who owns the view — Android takes one the app supplies, iOS creates its own. Add Net.Agora.Fastboard on its own if you are not using MAUI.</Description>
+    <PackageTags>Agora;Fastboard;drawing;collaboration;SDK;MAUI;Android;iOS</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+</Project>

@@ -14,6 +14,15 @@
   -->
   <PropertyGroup>
     <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+    <!--
+      Android-only on Linux. `dotnet build -f <android tfm>` still restores every target framework
+      in the list, and the iOS workload does not exist on Linux at all (NETSDK1178), so a Linux
+      restore with the iOS heads present can never succeed - this is what lets CI's per-product
+      sample build/link check run its Android leg on a Linux runner. Scoped to the samples: the
+      packages themselves are only ever packed on macOS (see build/BuildNugets.sh), where the full
+      list always applies.
+    -->
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(AgoraAndroidTargetFrameworks)</TargetFrameworks>
 
     <OutputType>Exe</OutputType>
     <RootNamespace>Net.Agora.Sample.Voice</RootNamespace>
