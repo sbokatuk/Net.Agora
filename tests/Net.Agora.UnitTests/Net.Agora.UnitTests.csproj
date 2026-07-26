@@ -1,16 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Covers the platform-independent logic in the façades: the options and event-arg types and the
-    client interfaces' contracts, for Video and Voice alike. Plain net9.0, no workloads, no device.
+    Covers the platform-independent logic in the façades: the options and event-arg types, the
+    client interfaces' contracts, and the neutral constructors, for every product. Plain net9.0,
+    no device.
 
-    The façades themselves cannot be referenced with an ordinary ProjectReference here: they only
-    multi-target net*-android/net*-ios (see their csproj files) because each client's JoinCore /
-    LeaveCore / DisposeCore exist only in Platforms/Android and Platforms/Apple — there is no
-    neutral head to build a net9.0 test project against. The files linked in below have no such
-    dependency, so they compile standalone. The concrete clients' join/timeout/cancellation/dispose
-    state machine needs a real engine to construct and is covered on-device instead — see
-    Net.Agora.DeviceTests.
+    The façades are referenced as ordinary projects: each carries a plain net8.0/net9.0/net10.0
+    neutral leg alongside its platform target frameworks (AgoraNeutralTargetFrameworks in
+    Directory.Build.props), so this net9.0 test project resolves the real neutral assemblies — the
+    same ones a consumer's shared class library gets — rather than re-compiling linked sources
+    into itself, which is what this project did before the neutral leg existed. The concrete
+    clients' join/timeout/cancellation/dispose state machine still needs a real engine to
+    construct and is covered on-device instead — see Net.Agora.DeviceTests; what the neutral leg
+    itself promises, PlatformNotSupportedException at construction, is asserted here in
+    NeutralPlatformTests.
   -->
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -26,26 +29,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../../src/Net.Agora.Video/AgoraVideoOptions.cs" Link="Facade/AgoraVideoOptions.cs" />
-    <Compile Include="../../src/Net.Agora.Video/AgoraVideoEvents.cs" Link="Facade/AgoraVideoEvents.cs" />
-    <Compile Include="../../src/Net.Agora.Video/IAgoraVideoClient.cs" Link="Facade/IAgoraVideoClient.cs" />
-    <Compile Include="../../src/Net.Agora.Video/AgoraVideoExtensions.cs" Link="Facade/AgoraVideoExtensions.cs" />
-    <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceOptions.cs" Link="Facade/AgoraVoiceOptions.cs" />
-    <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceEvents.cs" Link="Facade/AgoraVoiceEvents.cs" />
-    <Compile Include="../../src/Net.Agora.Voice/IAgoraVoiceClient.cs" Link="Facade/IAgoraVoiceClient.cs" />
-    <Compile Include="../../src/Net.Agora.Voice/AgoraVoiceExtensions.cs" Link="Facade/AgoraVoiceExtensions.cs" />
-    <Compile Include="../../src/Net.Agora.Signaling/AgoraSignalingOptions.cs" Link="Facade/AgoraSignalingOptions.cs" />
-    <Compile Include="../../src/Net.Agora.Signaling/AgoraSignalingEvents.cs" Link="Facade/AgoraSignalingEvents.cs" />
-    <Compile Include="../../src/Net.Agora.Signaling/IAgoraSignalingClient.cs" Link="Facade/IAgoraSignalingClient.cs" />
-    <Compile Include="../../src/Net.Agora.Chat/AgoraChatOptions.cs" Link="Facade/AgoraChatOptions.cs" />
-    <Compile Include="../../src/Net.Agora.Chat/AgoraChatEvents.cs" Link="Facade/AgoraChatEvents.cs" />
-    <Compile Include="../../src/Net.Agora.Chat/IAgoraChatClient.cs" Link="Facade/IAgoraChatClient.cs" />
-    <Compile Include="../../src/Net.Agora.Whiteboard/AgoraWhiteboardOptions.cs" Link="Facade/AgoraWhiteboardOptions.cs" />
-    <Compile Include="../../src/Net.Agora.Whiteboard/AgoraWhiteboardEvents.cs" Link="Facade/AgoraWhiteboardEvents.cs" />
-    <Compile Include="../../src/Net.Agora.Whiteboard/IAgoraWhiteboardClient.cs" Link="Facade/IAgoraWhiteboardClient.cs" />
-    <Compile Include="../../src/Net.Agora.Fastboard/AgoraFastboardOptions.cs" Link="Facade/AgoraFastboardOptions.cs" />
-    <Compile Include="../../src/Net.Agora.Fastboard/AgoraFastboardEvents.cs" Link="Facade/AgoraFastboardEvents.cs" />
-    <Compile Include="../../src/Net.Agora.Fastboard/IAgoraFastboardClient.cs" Link="Facade/IAgoraFastboardClient.cs" />
+    <ProjectReference Include="../../src/Net.Agora.Video/Net.Agora.Video.csproj" />
+    <ProjectReference Include="../../src/Net.Agora.Voice/Net.Agora.Voice.csproj" />
+    <ProjectReference Include="../../src/Net.Agora.Signaling/Net.Agora.Signaling.csproj" />
+    <ProjectReference Include="../../src/Net.Agora.Chat/Net.Agora.Chat.csproj" />
+    <ProjectReference Include="../../src/Net.Agora.Whiteboard/Net.Agora.Whiteboard.csproj" />
+    <ProjectReference Include="../../src/Net.Agora.Fastboard/Net.Agora.Fastboard.csproj" />
   </ItemGroup>
 
 </Project>

@@ -111,6 +111,16 @@
     -->
     <AgoraMacosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net9' ">net8.0-macos15.0;net9.0-macos15.0</AgoraMacosTargetFrameworks>
     <AgoraMacosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net10' ">net10.0-macos26.0</AgoraMacosTargetFrameworks>
+
+    <!--
+      The neutral leg, for the base facade packages only (not .Maui — the views need a platform).
+      It exists so a plain class library — shared ViewModels, a net9.0-windows or Mac Catalyst
+      head, a test project — can *reference* the package, program against IAgora*Client, and get
+      a PlatformNotSupportedException at construction instead of today's NU1202 restore failure
+      with no explanation. Compiles Platforms/Neutral, which binds nothing.
+    -->
+    <AgoraNeutralTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net9' ">net8.0;net9.0</AgoraNeutralTargetFrameworks>
+    <AgoraNeutralTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net10' ">net10.0</AgoraNeutralTargetFrameworks>
   </PropertyGroup>
 
   <!--

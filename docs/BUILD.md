@@ -49,7 +49,8 @@ src/
 tests/
   Net.Agora.PackageTests/       asserts this repository's own packages' shape and pinned dependencies
   Net.Agora.UnitTests/          the platform-neutral façade logic — options validation, the
-                                 event-arg types, for every product — no device, no packages, no workload
+                                 event-arg types, the neutral constructors, for every product —
+                                 no device; references the façade projects, builds only their neutral legs
   Net.Agora.DeviceTests/        on-device smoke checks against a packed façade package — one
                                  project, an Android and an iOS head, same checks on both; the
                                  product is selected with -p:AgoraDeviceProduct=Video|Voice|Signaling|Chat|Whiteboard|Fastboard
@@ -127,11 +128,16 @@ that its own packages carry the right target frameworks and depend on the platfo
 *exact* pinned version (a floating range would silently resolve a different platform package than
 the one a given façade build was verified against).
 
-`Net.Agora.UnitTests` links the platform-neutral façade files (`AgoraVideoOptions`, the event-arg
-types) directly rather than referencing `Net.Agora.Video` as a project — that project only
-multi-targets `net*-android`/`net*-ios`, since `AgoraVideoClient`'s `JoinCore`/`LeaveCore`/
-`DisposeCore` exist only in its `Platforms/Android` and `Platforms/Apple` halves. There is no
-neutral head to build a plain `net9.0` test project against.
+Every façade carries a neutral leg — plain `net8.0`/`net9.0`/`net10.0` builds of its
+`Platforms/Neutral` half, whose client constructor throws `PlatformNotSupportedException` (see
+`AgoraNeutralTargetFrameworks` in `Directory.Build.props`). It exists for consumers: a shared
+class library, a test project, a head for a platform Agora does not ship on can reference the
+package and program against `IAgora*Client`, and get a clear exception at construction instead of
+an unexplained NU1202 at restore. It is also what lets `Net.Agora.UnitTests` reference the façade
+projects directly: the `net9.0` test project resolves each project's `net9.0` neutral leg — the
+real assemblies a consumer's shared code gets — where it previously had to compile-link individual
+façade source files, because there was no neutral head to build a plain `net9.0` test project
+against. `NeutralPlatformTests` pins the leg's one behaviour, the constructor throw.
 
 ### Device checks
 
@@ -162,13 +168,16 @@ exercises what actually ships.
 | [`pr.yml`](../.github/workflows/pr.yml) | pull requests | Builds `<version>-beta.<pr>.<run>` |
 | [`release.yml`](../.github/workflows/release.yml) | per-track tags (`v*`, `chat-v*`, `whiteboard-v*`, `fastboard-v*`, `signaling-v*`) | Resolves the tag to its track, builds and publishes only that track, creates the GitHub release |
 
-`unit-tests` runs on `ubuntu-latest` with no dependency on `pack`, since `Net.Agora.UnitTests`
-needs neither a packed package nor a mobile workload — it is the fastest failure signal in the
-pipeline. `pack` still needs a single `macos-15` runner: `Net.Agora.Video` targets both platforms'
-TFMs, so restoring it needs the iOS workload even though nothing compiles Objective-C in this
-repository. Pinned rather than `macos-latest` so an image roll cannot change which Xcode versions
-are available to [`select-xcode.sh`](../.github/scripts/select-xcode.sh) — also needed by `e2e-ios`,
-and because the sample's `net10.0-ios26.0` leg requires an Xcode carrying the matching iOS SDK.
+`unit-tests` runs on `ubuntu-latest` with no dependency on `pack`: `Net.Agora.UnitTests` needs no
+packed façade package — it references the façade projects and builds only their neutral legs.
+Restoring those projects still evaluates every target framework they declare, so the runner needs
+the mobile workloads and the pinned platform packages resolvable; it remains the fastest failure
+signal in the pipeline. `pack` still needs a single `macos-15` runner: `Net.Agora.Video` targets
+both platforms' TFMs, so restoring it needs the iOS workload even though nothing compiles
+Objective-C in this repository. Pinned rather than `macos-latest` so an image roll cannot change
+which Xcode versions are available to [`select-xcode.sh`](../.github/scripts/select-xcode.sh) —
+also needed by `e2e-ios`, and because the sample's `net10.0-ios26.0` leg requires an Xcode
+carrying the matching iOS SDK.
 
 `e2e-ios` and `e2e-android` each run as a matrix over `e2e-ios-target-frameworks` /
 `e2e-android-target-frameworks` (default: the net8 and net10 extremes — see the comments on those

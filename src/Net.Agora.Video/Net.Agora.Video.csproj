@@ -20,7 +20,7 @@
     those two repositories' own build/BuildNugets.sh has packed them there). See docs/BUILD.md.
   -->
   <PropertyGroup>
-    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks);$(AgoraMacosTargetFrameworks)</TargetFrameworks>
+    <TargetFrameworks>$(AgoraNeutralTargetFrameworks);$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks);$(AgoraMacosTargetFrameworks)</TargetFrameworks>
 
     <AssemblyName>Net.Agora.Video</AssemblyName>
     <RootNamespace>Net.Agora.Video</RootNamespace>
@@ -36,6 +36,15 @@
   -->
   <ItemGroup>
     <Compile Remove="Platforms/**/*.cs" />
+  </ItemGroup>
+
+  <!--
+    The neutral leg (plain net8.0/net9.0/net10.0): no binding, no platform reference — a client
+    whose constructor throws PlatformNotSupportedException. See AgoraNeutralTargetFrameworks in
+    Directory.Build.props for why it ships.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == ''">
+    <Compile Include="Platforms/Neutral/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
@@ -57,6 +66,16 @@
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
     <Compile Include="Platforms/Apple/**/*.cs" />
     <PackageReference Include="Net.Agora.Video.Mac" Version="[$(NetAgoraVideoMacVersion)]" />
+  </ItemGroup>
+
+  <!--
+    The unit tests assert AgoraVirtualBackground's internal source-type plumbing — the values the
+    platform halves hand the engine, which no public member exposes. They could see it for free
+    while the test project compile-linked this project's sources; now that it references the
+    project and tests the real neutral assembly, the internals need granting instead.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Net.Agora.UnitTests" />
   </ItemGroup>
 
   <PropertyGroup>

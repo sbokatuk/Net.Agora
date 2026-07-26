@@ -103,6 +103,18 @@ public static class Packages
         "net8.0-macos15.0", "net9.0-macos15.0",
     ];
 
+    /// <summary>
+    /// The neutral target frameworks every façade carries — the plain legs whose clients throw
+    /// PlatformNotSupportedException at construction, shipped so shared code can reference the
+    /// package without NU1202 (see AgoraNeutralTargetFrameworks in Directory.Build.props). All
+    /// three are listed, including the net10.0 leg the two-pass merge contributes: a façade that
+    /// lost one because a pack pass failed is exactly the regression these tests exist to catch.
+    /// </summary>
+    public static readonly string[] NeutralTargetFrameworks =
+    [
+        "net8.0", "net9.0", "net10.0",
+    ];
+
     public static IEnumerable<object[]> AndroidFrameworks =>
         AndroidTargetFrameworks.Select(tfm => new object[] { tfm });
 
@@ -121,6 +133,13 @@ public static class Packages
     public static IEnumerable<object[]> FacadeMacosFrameworks =>
         Products.Where(p => p.Mac is not null)
             .SelectMany(p => MacosTargetFrameworks.Select(tfm => new object[] { p.Facade, tfm }));
+
+    /// <summary>Every (façade package, neutral target framework) pair — every façade has all three.</summary>
+    public static IEnumerable<object[]> FacadeNeutralFrameworks =>
+        Products.SelectMany(p => NeutralTargetFrameworks.Select(tfm => new object[] { p.Facade, tfm }));
+
+    /// <summary>Every façade package on its own, for the per-package nuspec assertions.</summary>
+    public static IEnumerable<object[]> FacadeRows => Products.Select(p => new object[] { p.Facade });
 
     public static string ArtifactsDirectory { get; } = ResolveArtifactsDirectory();
 

@@ -47,6 +47,54 @@ public class PackageLayoutTests
         Assert.True(package.GetEntry(expected) is not null, $"{facade} is missing '{expected}'.");
     }
 
+    [Theory]
+    [MemberData(nameof(Packages.FacadeNeutralFrameworks), MemberType = typeof(Packages))]
+    public void Facade_carries_an_assembly_and_docs_for_every_neutral_target_framework(
+        string facade, string tfm)
+    {
+        using var package = Packages.OpenPackage(facade);
+
+        // The XML is asserted alongside the assembly for this leg only: the neutral build is the
+        // one shared code programs against in an IDE, so losing its IntelliSense docs is a
+        // packaging regression in its own right.
+        foreach (var extension in new[] { "dll", "xml" })
+        {
+            var expected = $"lib/{tfm}/{facade}.{extension}";
+            Assert.True(package.GetEntry(expected) is not null, $"{facade} is missing '{expected}'.");
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(Packages.FacadeRows), MemberType = typeof(Packages))]
+    public void Facade_neutral_dependency_groups_pin_no_platform_packages(string facade)
+    {
+        using var package = Packages.OpenPackage(facade);
+        var nuspec = Packages.ReadNuspec(package, facade);
+
+        foreach (var tfm in Packages.NeutralTargetFrameworks)
+        {
+            var group = nuspec.Descendants()
+                .SingleOrDefault(e => e.Name.LocalName == "group"
+                    && e.Attribute("targetFramework")?.Value == tfm);
+
+            // The group must exist — it is how NuGet advertises the leg to a plain-net restore
+            // (net10.0's arrives via the two-pass merge) — and it must pin no Net.Agora.* platform
+            // package: a platform pin leaking in here would make every plain-net restore chase a
+            // binding it cannot use, failing with the very NU1202 the neutral leg exists to avoid.
+            Assert.True(group is not null, $"{facade} has no '{tfm}' dependency group.");
+
+            var leaked = group!.Descendants()
+                .Where(e => e.Name.LocalName == "dependency")
+                .Select(e => e.Attribute("id")?.Value)
+                .Where(id => id is not null && id.StartsWith("Net.Agora.", StringComparison.Ordinal))
+                .ToList();
+            Assert.True(
+                leaked.Count == 0,
+                $"{facade}'s '{tfm}' dependency group pins {string.Join(", ", leaked)} — platform " +
+                "packages must stay in the platform groups.");
+        }
+    }
+
     [SkippableTheory]
     [MemberData(nameof(Packages.MacProductRows), MemberType = typeof(Packages))]
     public void Metapackage_depends_on_the_macos_binding_at_the_pinned_version(string facade, string mac)
