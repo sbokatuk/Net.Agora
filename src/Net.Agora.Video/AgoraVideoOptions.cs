@@ -29,12 +29,17 @@ public sealed class AgoraVideoOptions
     /// <summary>The App ID from the Agora Console. Required.</summary>
     public string? AppId { get; set; }
 
-    /// <summary>The channel to join. Required — set on the instance passed to <c>JoinAsync</c>, not here.</summary>
+    /// <summary>
+    /// Never read. The channel is a parameter of
+    /// <see cref="IAgoraVideoClient.JoinAsync(string, CancellationToken)"/>, because one client
+    /// can join, leave and rejoin a different channel without being reconstructed.
+    /// </summary>
+    [Obsolete("Not used. Pass the channel to JoinAsync instead; setting this has no effect.", error: false)]
     public string? ChannelId { get; set; }
 
     /// <summary>
-    /// The token for <see cref="ChannelId"/>, or null for an app with App ID-only authentication
-    /// (testing only — Agora requires tokens in production).
+    /// The token for the channel, or null for an app with App ID-only authentication (testing
+    /// only — Agora requires tokens in production).
     /// </summary>
     public string? Token { get; set; }
 

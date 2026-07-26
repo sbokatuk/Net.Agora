@@ -1,7 +1,37 @@
 namespace Net.Agora.Whiteboard;
 
 /// <summary>Raised when a whiteboard operation fails, or the SDK reports an error.</summary>
-public sealed class AgoraWhiteboardException(string message) : Exception(message);
+public sealed class AgoraWhiteboardException : Exception
+{
+    /// <summary>
+    /// Creates the exception for a failure netless reported without a numeric code, which is the
+    /// usual case — see <see cref="ErrorCode"/>.
+    /// </summary>
+    public AgoraWhiteboardException(string message)
+        : this(message, errorCode: 0)
+    {
+    }
+
+    /// <summary>Creates the exception for a failure that did carry <paramref name="errorCode"/>.</summary>
+    public AgoraWhiteboardException(string message, int errorCode)
+        : base(message) => ErrorCode = errorCode;
+
+    /// <summary>
+    /// As above, keeping the platform exception that caused it — used where the failure arrives
+    /// as a native exception rather than a code, so the original stack is not thrown away.
+    /// </summary>
+    public AgoraWhiteboardException(string message, int errorCode, Exception innerException)
+        : base(message, innerException) => ErrorCode = errorCode;
+
+    /// <summary>
+    /// The SDK's own error code, or 0 when it gave none. Exists so one <c>catch</c> policy can
+    /// read <c>ErrorCode</c> across every Net.Agora product, but expect 0 here more often than
+    /// not: netless reports whiteboard failures as text (an <c>NSError</c> description on iOS, an
+    /// exception message on Android) rather than as a numbered enumeration like Agora's own SDKs.
+    /// The message carries what the SDK actually said.
+    /// </summary>
+    public int ErrorCode { get; }
+}
 
 /// <summary>The room connection's lifecycle. Both SDKs report the same five states.</summary>
 public enum AgoraWhiteboardPhase

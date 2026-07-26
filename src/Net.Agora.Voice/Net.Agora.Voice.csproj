@@ -70,6 +70,11 @@
     <PackageReference Include="Net.Agora.Voice.Mac" Version="[$(NetAgoraVoiceMacVersion)]" />
   </ItemGroup>
 
+  <!-- AgoraEngineSlot's whole behaviour is internal; the unit tests exercise it directly. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Net.Agora.UnitTests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Net.Agora.Voice</PackageId>

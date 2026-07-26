@@ -138,6 +138,7 @@ public sealed partial class AgoraVoiceClient : IAgoraVoiceClient
         _disposed = true;
         Leave();
         DisposeCore();
+        AgoraEngineSlot.Release();
     }
 
     /// <summary>Called by the platform half when the server confirms the join.</summary>

@@ -70,9 +70,10 @@
 
   <!--
     The unit tests assert AgoraVirtualBackground's internal source-type plumbing — the values the
-    platform halves hand the engine, which no public member exposes. They could see it for free
-    while the test project compile-linked this project's sources; now that it references the
-    project and tests the real neutral assembly, the internals need granting instead.
+    platform halves hand the engine, which no public member exposes — and AgoraEngineSlot, whose
+    whole behaviour is internal. They could see both for free while the test project
+    compile-linked this project's sources; now that it references the project and tests the real
+    neutral assembly, the internals need granting instead.
   -->
   <ItemGroup>
     <InternalsVisibleTo Include="Net.Agora.UnitTests" />

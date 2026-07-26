@@ -118,7 +118,10 @@ public sealed partial class AgoraFastboardClient
         public void OnSuccess(Java.Lang.Object? value) => complete(null);
 
         public void OnError(Java.Lang.Exception? exception) =>
-            complete(new AgoraFastboardException(exception?.Message ?? "the operation failed."));
+            complete(exception is null
+                ? new AgoraFastboardException("the operation failed.")
+                : new AgoraFastboardException(
+                    exception.Message ?? "the operation failed.", errorCode: 0, exception));
     }
 
     /// <summary>

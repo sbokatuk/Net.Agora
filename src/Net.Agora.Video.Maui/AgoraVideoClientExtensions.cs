@@ -47,6 +47,10 @@ public static class AgoraVideoClientExtensions
         client.SetLocalView(PlatformView(view));
 #elif IOS
         client.SetLocalView(PlatformView(view));
+#else
+        // Unreachable while the package targets Android and iOS only, but an empty body would be
+        // a silent no-op the day it is not — rendering nothing, reporting nothing.
+        throw NotSupported();
 #endif
     }
 
@@ -61,6 +65,9 @@ public static class AgoraVideoClientExtensions
         client.SetRemoteView(uid, PlatformView(view));
 #elif IOS
         client.SetRemoteView(uid, PlatformView(view));
+#else
+        // See SetLocalView.
+        throw NotSupported();
 #endif
     }
 
@@ -81,4 +88,7 @@ public static class AgoraVideoClientExtensions
     private static InvalidOperationException NotRealised() =>
         new("the AgoraVideoView has no handler yet, so its native view does not exist. " +
             "Attach it once the page has appeared rather than from its constructor.");
+
+    private static PlatformNotSupportedException NotSupported() =>
+        new("Net.Agora.Video.Maui renders video on Android and iOS only.");
 }

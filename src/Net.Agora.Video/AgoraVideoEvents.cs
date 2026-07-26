@@ -1,10 +1,21 @@
 namespace Net.Agora.Video;
 
 /// <summary>Raised when joining a channel fails, or the SDK reports an error while joined.</summary>
-public sealed class AgoraVideoException(string message, int errorCode) : Exception(message)
+public sealed class AgoraVideoException : Exception
 {
+    /// <summary>Creates the exception for an SDK failure that reported <paramref name="errorCode"/>.</summary>
+    public AgoraVideoException(string message, int errorCode)
+        : base(message) => ErrorCode = errorCode;
+
+    /// <summary>
+    /// As above, keeping the platform exception that caused it — used where the failure arrives
+    /// as a native exception rather than a code, so the original stack is not thrown away.
+    /// </summary>
+    public AgoraVideoException(string message, int errorCode, Exception innerException)
+        : base(message, innerException) => ErrorCode = errorCode;
+
     /// <summary>The SDK's own error code — <c>AgoraErrorCode</c> on iOS, <c>Constants.ERR_*</c> on Android.</summary>
-    public int ErrorCode { get; } = errorCode;
+    public int ErrorCode { get; }
 }
 
 /// <summary>Raised for <see cref="IAgoraVideoClient.Joined"/> and <see cref="IAgoraVideoClient.Left"/>.</summary>

@@ -23,32 +23,43 @@ public sealed partial class AgoraVoiceClient
         options.Validate();
         _options = options;
 
-        _handler = new Handler(this);
-
-        // RtcEngineConfig binds each of its Java fields (mAppId, mContext, ...) twice: once as the
-        // plain field (MAppId, settable) and once through a same-named read-only getter method
-        // (AppId) the SDK also exposes. Only the M-prefixed field form has a setter.
-        var config = new RtcEngineConfig
+        AgoraEngineSlot.Acquire();
+        try
         {
-            MContext = context,
-            MAppId = options.AppId,
-            MChannelProfile = (int)options.ChannelProfile,
-            MEventHandler = _handler,
-        };
-        _engine = RtcEngine.Create(config)
-            ?? throw new AgoraVoiceException("RtcEngine.Create returned null.", errorCode: 0);
+            _handler = new Handler(this);
 
-        // The role only exists in live-broadcasting, where the engine's default is Audience — a
-        // Broadcaster who skipped this would join silently unable to publish.
-        if (options.ChannelProfile == AgoraChannelProfile.LiveBroadcasting)
-        {
-            _engine.SetClientRole((int)options.ClientRole);
+            // RtcEngineConfig binds each of its Java fields (mAppId, mContext, ...) twice: once as the
+            // plain field (MAppId, settable) and once through a same-named read-only getter method
+            // (AppId) the SDK also exposes. Only the M-prefixed field form has a setter.
+            var config = new RtcEngineConfig
+            {
+                MContext = context,
+                MAppId = options.AppId,
+                MChannelProfile = (int)options.ChannelProfile,
+                MEventHandler = _handler,
+            };
+            _engine = RtcEngine.Create(config)
+                ?? throw new AgoraVoiceException("RtcEngine.Create returned null.", errorCode: 0);
+
+            // The role only exists in live-broadcasting, where the engine's default is Audience — a
+            // Broadcaster who skipped this would join silently unable to publish.
+            if (options.ChannelProfile == AgoraChannelProfile.LiveBroadcasting)
+            {
+                _engine.SetClientRole((int)options.ClientRole);
+            }
+
+            if (options.DefaultToSpeakerphone)
+            {
+                // Agora's own Java casing ("Routeto") — a wart the binding faithfully preserves.
+                _engine.SetDefaultAudioRoutetoSpeakerphone(true);
+            }
         }
-
-        if (options.DefaultToSpeakerphone)
+        catch
         {
-            // Agora's own Java casing ("Routeto") — a wart the binding faithfully preserves.
-            _engine.SetDefaultAudioRoutetoSpeakerphone(true);
+            // A half-built client is never disposed, so the slot has to come back here or the
+            // process could never create another one.
+            AgoraEngineSlot.Release();
+            throw;
         }
     }
 
