@@ -11,13 +11,14 @@ public static class MauiProgram
 
         builder
             .UseMauiApp<App>()
+            // Registers the AgoraFastboardView handler; without this CreateClient throws
+            // because the view never gets a platform view.
+            .UseAgoraFastboard()
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
-        // Nothing Agora-specific to register: Net.Agora.Chat has no handlers — chat renders
-        // nothing — and Net.Agora.Chat.Maui is a plain extension method, not a MAUI service.
 
 #if DEBUG
         builder.Logging.AddDebug();
