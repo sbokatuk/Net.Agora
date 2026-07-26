@@ -1,5 +1,19 @@
+// One Apple source set for both iOS and native macOS. The AgoraRtcEngineKit surface is the same on
+// both; the only differences are the canvas view type (UIView vs NSView, aliased as NativeView) and
+// a handful of iOS-only engine calls the macOS binding does not expose (speakerphone routing,
+// switchCamera). The binding namespace differs per platform, aliased as Rtc so the qualified
+// references below read the same either way.
+#if MACOS
+using Net.Agora.Video.Mac;
+using AppKit;
+using NativeView = AppKit.NSView;
+using Rtc = Net.Agora.Video.Mac;
+#else
 using Net.Agora.Video.iOS;
 using UIKit;
+using NativeView = UIKit.UIView;
+using Rtc = Net.Agora.Video.iOS;
+#endif
 
 namespace Net.Agora.Video;
 
@@ -12,7 +26,8 @@ public sealed partial class AgoraVideoClient
     /// Creates the engine and joins nothing yet — call <see cref="IAgoraVideoClient.JoinAsync"/>.
     /// Create the client after the hosting view has appeared (e.g. in <c>ViewDidAppear</c>), not
     /// in a constructor — <see cref="SetLocalView"/>/<see cref="SetRemoteView"/> add a subview to
-    /// whatever <see cref="UIView"/> you pass, which needs a window to render into.
+    /// whatever native view you pass (a <c>UIView</c> on iOS, an <c>NSView</c> on macOS), which
+    /// needs a window to render into.
     /// </summary>
     /// <param name="options">Must have <see cref="AgoraVideoOptions.AppId"/> set.</param>
     public AgoraVideoClient(AgoraVideoOptions options)
@@ -25,8 +40,8 @@ public sealed partial class AgoraVideoClient
         {
             AppId = options.AppId,
             ChannelProfile = options.ChannelProfile == AgoraChannelProfile.LiveBroadcasting
-                ? Net.Agora.Video.iOS.AgoraChannelProfile.LiveBroadcasting
-                : Net.Agora.Video.iOS.AgoraChannelProfile.Communication,
+                ? Rtc.AgoraChannelProfile.LiveBroadcasting
+                : Rtc.AgoraChannelProfile.Communication,
         };
         _engine = AgoraRtcEngineKit.SharedEngine(config, _delegate);
 
@@ -35,17 +50,17 @@ public sealed partial class AgoraVideoClient
         if (options.ChannelProfile == AgoraChannelProfile.LiveBroadcasting)
         {
             _engine.SetClientRole(options.ClientRole == AgoraClientRole.Audience
-                ? Net.Agora.Video.iOS.AgoraClientRole.Audience
-                : Net.Agora.Video.iOS.AgoraClientRole.Broadcaster);
+                ? Rtc.AgoraClientRole.Audience
+                : Rtc.AgoraClientRole.Broadcaster);
         }
     }
 
     /// <summary>Renders this device's own camera feed into <paramref name="view"/> — the SDK adds its own subview.</summary>
-    public void SetLocalView(UIView view) =>
+    public void SetLocalView(NativeView view) =>
         _engine.SetupLocalVideo(new AgoraRtcVideoCanvas { Uid = 0, View = view });
 
     /// <summary>Renders a remote user's video into <paramref name="view"/> — call after <see cref="IAgoraVideoClient.UserJoined"/>.</summary>
-    public void SetRemoteView(uint uid, UIView view) =>
+    public void SetRemoteView(uint uid, NativeView view) =>
         _engine.SetupRemoteVideo(new AgoraRtcVideoCanvas { Uid = uid, View = view });
 
     /// <inheritdoc cref="IAgoraVideoClient.EnableVideo" />
@@ -67,11 +82,24 @@ public sealed partial class AgoraVideoClient
     public void StopPreview() => _engine.StopPreview();
 
     /// <inheritdoc cref="IAgoraVideoClient.SwitchCamera" />
-    public void SwitchCamera() => _engine.SwitchCamera();
+    public void SwitchCamera()
+    {
+#if !MACOS
+        _engine.SwitchCamera();
+#endif
+        // No-op on macOS: switchCamera is an iOS front/back-camera flip the desktop engine does not
+        // implement. A Mac selects its capture device by device selection, not a flip.
+    }
 
     /// <inheritdoc cref="IAgoraVideoClient.SetSpeakerphone" />
     public void SetSpeakerphone(bool speakerphone)
     {
+#if MACOS
+        // No-op on macOS: speakerphone routing is an iOS audio-session concept the desktop engine
+        // does not implement (the selectors are unrecognized there). A Mac routes audio by output
+        // *device*, not an earpiece/speaker toggle.
+        _ = speakerphone;
+#else
         // Two native calls behind one switch: setEnableSpeakerphone answers -3 (not ready) until
         // the audio session exists (observed on the simulator suite in sbokatuk/Net.Agora.iOS),
         // and setDefaultAudioRouteToSpeakerphone is what applies before one does.
@@ -83,6 +111,7 @@ public sealed partial class AgoraVideoClient
         {
             _engine.SetDefaultAudioRouteToSpeakerphone(speakerphone);
         }
+#endif
     }
 
     /// <inheritdoc cref="IAgoraVideoClient.RenewToken" />
@@ -138,13 +167,13 @@ public sealed partial class AgoraVideoClient
         }
 
         public override void ConnectionChangedToState(
-            AgoraRtcEngineKit engine, Net.Agora.Video.iOS.AgoraConnectionState state, nint reason) =>
+            AgoraRtcEngineKit engine, Rtc.AgoraConnectionState state, nint reason) =>
             owner.RaiseConnectionStateChanged((AgoraConnectionState)(long)state, (int)reason);
 
         public override void TokenPrivilegeWillExpire(AgoraRtcEngineKit engine, string token) =>
             owner.RaiseTokenPrivilegeWillExpire();
 
-        public override void DidOccurError(AgoraRtcEngineKit engine, Net.Agora.Video.iOS.AgoraErrorCode errorCode) =>
+        public override void DidOccurError(AgoraRtcEngineKit engine, Rtc.AgoraErrorCode errorCode) =>
             owner.RaiseError($"Agora error {errorCode}", (int)errorCode);
     }
 
@@ -158,10 +187,10 @@ public sealed partial class AgoraVideoClient
             : (int)_engine.SetAinsMode(true, (AgoraAinsMode)(long)mode);
 
     private int SetVoiceBeautifierCore(AgoraVoiceBeautifier preset) =>
-        (int)_engine.SetVoiceBeautifierPreset((Net.Agora.Video.iOS.AgoraVoiceBeautifierPreset)(long)preset);
+        (int)_engine.SetVoiceBeautifierPreset((Rtc.AgoraVoiceBeautifierPreset)(long)preset);
 
     private int SetAudioEffectCore(AgoraAudioEffect preset) =>
-        (int)_engine.SetAudioEffectPreset((Net.Agora.Video.iOS.AgoraAudioEffectPreset)(long)preset);
+        (int)_engine.SetAudioEffectPreset((Rtc.AgoraAudioEffectPreset)(long)preset);
 
     private int SetVirtualBackgroundCore(AgoraVirtualBackground? background)
     {

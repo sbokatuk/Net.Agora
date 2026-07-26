@@ -1,5 +1,11 @@
+// One Apple source set for both iOS and native macOS — the AgoraRtmClientKit surface is the same on
+// both (RTM has no platform-specific types here), so only the binding namespace differs per TFM.
 using Foundation;
+#if MACOS
+using Net.Agora.Signaling.Mac;
+#else
 using Net.Agora.Signaling.iOS;
+#endif
 
 namespace Net.Agora.Signaling;
 

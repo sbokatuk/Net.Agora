@@ -21,7 +21,7 @@
     those two repositories' own build/BuildNugets.sh has packed them there). See docs/BUILD.md.
   -->
   <PropertyGroup>
-    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks);$(AgoraMacosTargetFrameworks)</TargetFrameworks>
 
     <AssemblyName>Net.Agora.Voice</AssemblyName>
     <RootNamespace>Net.Agora.Voice</RootNamespace>
@@ -49,6 +49,16 @@
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
     <Compile Include="Platforms/Apple/**/*.cs" />
     <PackageReference Include="Net.Agora.Voice.iOS" Version="[$(NetAgoraVoiceIosVersion)]" />
+  </ItemGroup>
+
+  <!--
+    The native macOS (AppKit) leg shares the Platforms/Apple sources with iOS — the audio surface is
+    identical; the file's #if MACOS only drops the iOS-only speakerphone routing. Binds the
+    Net.Agora.Voice.Mac package (see sbokatuk/Net.Agora.Mac).
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
+    <Compile Include="Platforms/Apple/**/*.cs" />
+    <PackageReference Include="Net.Agora.Voice.Mac" Version="[$(NetAgoraVoiceMacVersion)]" />
   </ItemGroup>
 
   <PropertyGroup>

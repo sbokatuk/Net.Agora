@@ -107,15 +107,18 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Install iOS, Android and MAUI workloads for every SDK band
+      - name: Install iOS, macOS, Android and MAUI workloads for every SDK band
         run: |
+          # macos is here for the native macOS (AppKit) leg of the Video/Voice/Signaling façades —
+          # a distinct platform from maui-ios (which is Mac Catalyst-only, and Agora ships no
+          # Catalyst slice). See src/Net.Agora.Video/Net.Agora.Video.csproj's macos ItemGroup.
           for major in 9 10; do
             dir="${RUNNER_TEMP}/sdk${major}"
             mkdir -p "${dir}"
             sdk=$(dotnet --list-sdks | grep "^${major}\." | tail -1 | cut -d' ' -f1)
             ( cd "${dir}" \
               && dotnet new globaljson --sdk-version "${sdk}" --force \
-              && dotnet workload install ios android maui-android maui-ios )
+              && dotnet workload install ios macos android maui-android maui-ios )
           done
 
       - name: Set up Android SDK platforms
@@ -170,7 +173,13 @@ jobs:
         # ~25 min each, so back to back they dominated the whole pipeline. Split out, they run
         # concurrently, and pack's dependents (validate, e2e) no longer wait on them.
         product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
-        platform: [android, ios]
+        platform: [android, ios, macos]
+        exclude:
+          # No native macOS SDK for these products, so no macos façade leg and no .Mac sample —
+          # see src/Net.Agora.<P>/…: Chat/Whiteboard/Fastboard are Android+iOS only.
+          - { product: Chat, platform: macos }
+          - { product: Whiteboard, platform: macos }
+          - { product: Fastboard, platform: macos }
         include:
           # os/tfm/build-args attach to every combination whose platform matches (GitHub merges an
           # include entry into the matrix legs that already share its keys). The target frameworks
@@ -184,11 +193,18 @@ jobs:
             # Pinned to a simulator runtime identifier. These samples are built, never launched, so
             # Release's startup-time AOT concerns do not apply.
             build-args: -p:RuntimeIdentifier=iossimulator-arm64
+          - platform: macos
+            os: macos-15
+            # The native macOS (AppKit) leg — Video/Voice/Signaling only. These build the
+            # Net.Agora.Sample.<Product>.Mac AppKit samples, which consume the cross-platform façade
+            # over its net-macos leg (no MAUI: MAUI's only desktop-Mac target is Mac Catalyst, which
+            # Agora ships no slice for). Pinned platform version, no RuntimeIdentifier.
+            tfm: net9.0-macos15.0
     steps:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
-        if: ${{ matrix.platform == 'ios' }}
+        if: ${{ matrix.platform == 'ios' || matrix.platform == 'macos' }}
         run: ./.github/scripts/select-xcode.sh
 
       - name: Set up .NET
@@ -210,11 +226,14 @@ jobs:
         # operating system"), which no workload install can fix - the sample csprojs instead drop
         # the iOS target frameworks from TargetFrameworks when restoring on Linux.
         run: |
-          if [ "${{ matrix.platform }}" = "ios" ]; then
-            dotnet workload install ios android maui-ios maui-android
-          else
-            dotnet workload install android maui-android
-          fi
+          case "${{ matrix.platform }}" in
+            ios)   dotnet workload install ios android maui-ios maui-android ;;
+            # The macOS AppKit sample is macos-only (no MAUI head), so only the macos workload is
+            # needed — the cross-platform façade it references resolves to its .Mac binding for the
+            # net-macos target framework.
+            macos) dotnet workload install macos ;;
+            *)     dotnet workload install android maui-android ;;
+          esac
 
       - name: Set up the Android SDK
         if: ${{ matrix.platform == 'android' }}
@@ -241,6 +260,12 @@ jobs:
             Whiteboard) project=Net.Agora.Sample.Whiteboard; base="${AGORA_WHITEBOARD_PACKAGE_VERSION}"; prop=AgoraWhiteboardPackageVersion ;;
             Fastboard)  project=Net.Agora.Sample.Fastboard;  base="${AGORA_FASTBOARD_PACKAGE_VERSION}";  prop=AgoraFastboardPackageVersion ;;
           esac
+          # The macOS leg builds the AppKit sample (Net.Agora.Sample.<Product>.Mac), which consumes
+          # the cross-platform façade rather than its .Maui companion. Only Video/Voice/Signaling
+          # reach this leg (the matrix excludes the rest), so the name always resolves.
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            project="Net.Agora.Sample.${{ matrix.product }}.Mac"
+          fi
           version="${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
           dotnet build "samples/${project}" \
             -c Release -f "${{ matrix.tfm }}" ${{ matrix.build-args }} \

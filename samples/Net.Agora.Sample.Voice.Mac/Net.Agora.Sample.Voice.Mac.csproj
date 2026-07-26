@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Native AppKit sample driving the cross-platform Net.Agora.Voice client on macOS. Consumes the
+    packed Net.Agora.Voice façade from artifacts/ (which pulls in Net.Agora.Voice.Mac), exercising
+    the macOS leg of the façade. Pinned macOS platform versions — see the Video.Mac sample for why.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0-macos15.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Net.Agora.Sample.Voice.Mac</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <CheckEolWorkloads>false</CheckEolWorkloads>
+
+    <ApplicationId>com.sbokatuk.agora.sample.voice.mac</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
+
+    <AgoraVoicePackageVersion Condition=" '$(AgoraVoicePackageVersion)' == '' ">$(VersionPrefix)</AgoraVoicePackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Net.Agora.Voice" Version="[$(AgoraVoicePackageVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Info.plist" LogicalName="Info.plist" />
+  </ItemGroup>
+
+</Project>

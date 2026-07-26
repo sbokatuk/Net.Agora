@@ -1,4 +1,14 @@
+// One Apple source set for both iOS and native macOS — the AgoraRtcEngineKit audio surface is the
+// same on both. The binding namespace differs per platform, aliased as Rtc so the qualified
+// references below read the same either way; the only behavioural difference is speakerphone
+// routing, an iOS-only concept guarded with #if MACOS below.
+#if MACOS
+using Net.Agora.Voice.Mac;
+using Rtc = Net.Agora.Voice.Mac;
+#else
 using Net.Agora.Voice.iOS;
+using Rtc = Net.Agora.Voice.iOS;
+#endif
 
 namespace Net.Agora.Voice;
 
@@ -21,8 +31,8 @@ public sealed partial class AgoraVoiceClient
         {
             AppId = options.AppId,
             ChannelProfile = options.ChannelProfile == AgoraChannelProfile.LiveBroadcasting
-                ? Net.Agora.Voice.iOS.AgoraChannelProfile.LiveBroadcasting
-                : Net.Agora.Voice.iOS.AgoraChannelProfile.Communication,
+                ? Rtc.AgoraChannelProfile.LiveBroadcasting
+                : Rtc.AgoraChannelProfile.Communication,
         };
         _engine = AgoraRtcEngineKit.SharedEngine(config, _delegate);
 
@@ -31,14 +41,18 @@ public sealed partial class AgoraVoiceClient
         if (options.ChannelProfile == AgoraChannelProfile.LiveBroadcasting)
         {
             _engine.SetClientRole(options.ClientRole == AgoraClientRole.Audience
-                ? Net.Agora.Voice.iOS.AgoraClientRole.Audience
-                : Net.Agora.Voice.iOS.AgoraClientRole.Broadcaster);
+                ? Rtc.AgoraClientRole.Audience
+                : Rtc.AgoraClientRole.Broadcaster);
         }
 
+#if !MACOS
+        // Speakerphone routing is iOS-only — the macOS engine does not implement it (a Mac routes
+        // audio by output device, not an earpiece/speaker toggle), so this option is a no-op there.
         if (options.DefaultToSpeakerphone)
         {
             _engine.SetDefaultAudioRouteToSpeakerphone(true);
         }
+#endif
     }
 
     /// <inheritdoc cref="IAgoraVoiceClient.MuteLocalAudio" />
@@ -47,6 +61,12 @@ public sealed partial class AgoraVoiceClient
     /// <inheritdoc cref="IAgoraVoiceClient.SetSpeakerphone" />
     public void SetSpeakerphone(bool speakerphone)
     {
+#if MACOS
+        // No-op on macOS: speakerphone routing is an iOS audio-session concept the desktop engine
+        // does not implement (the selectors are unrecognized there). A Mac routes audio by output
+        // *device*, not an earpiece/speaker toggle.
+        _ = speakerphone;
+#else
         // Two native calls behind one switch: setEnableSpeakerphone answers -3 (not ready) until
         // the audio session exists (observed on the simulator suite in sbokatuk/Net.Agora.iOS),
         // and setDefaultAudioRouteToSpeakerphone is what applies before one does.
@@ -58,6 +78,7 @@ public sealed partial class AgoraVoiceClient
         {
             _engine.SetDefaultAudioRouteToSpeakerphone(speakerphone);
         }
+#endif
     }
 
     /// <inheritdoc cref="IAgoraVoiceClient.RenewToken" />
@@ -110,13 +131,13 @@ public sealed partial class AgoraVoiceClient
         }
 
         public override void ConnectionChangedToState(
-            AgoraRtcEngineKit engine, Net.Agora.Voice.iOS.AgoraConnectionState state, nint reason) =>
+            AgoraRtcEngineKit engine, Rtc.AgoraConnectionState state, nint reason) =>
             owner.RaiseConnectionStateChanged((AgoraConnectionState)(long)state, (int)reason);
 
         public override void TokenPrivilegeWillExpire(AgoraRtcEngineKit engine, string token) =>
             owner.RaiseTokenPrivilegeWillExpire();
 
-        public override void DidOccurError(AgoraRtcEngineKit engine, Net.Agora.Voice.iOS.AgoraErrorCode errorCode) =>
+        public override void DidOccurError(AgoraRtcEngineKit engine, Rtc.AgoraErrorCode errorCode) =>
             owner.RaiseError($"Agora error {errorCode}", (int)errorCode);
     }
 
@@ -130,8 +151,8 @@ public sealed partial class AgoraVoiceClient
             : (int)_engine.SetAinsMode(true, (AgoraAinsMode)(long)mode);
 
     private int SetVoiceBeautifierCore(AgoraVoiceBeautifier preset) =>
-        (int)_engine.SetVoiceBeautifierPreset((Net.Agora.Voice.iOS.AgoraVoiceBeautifierPreset)(long)preset);
+        (int)_engine.SetVoiceBeautifierPreset((Rtc.AgoraVoiceBeautifierPreset)(long)preset);
 
     private int SetAudioEffectCore(AgoraAudioEffect preset) =>
-        (int)_engine.SetAudioEffectPreset((Net.Agora.Voice.iOS.AgoraAudioEffectPreset)(long)preset);
+        (int)_engine.SetAudioEffectPreset((Rtc.AgoraAudioEffectPreset)(long)preset);
 }
