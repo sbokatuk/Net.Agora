@@ -28,6 +28,15 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
+  <!--
+    Referencing the façades pulls their whole target-framework set into the restore graph, and
+    merely evaluating the android/ios/macos legs needs the matching workloads installed. Restore
+    walks every leg of a referenced project regardless of what the reference asks for — neither
+    SetTargetFramework nor AdditionalProperties prunes it — so the lever is the global property
+    -p:AgoraNeutralOnly=true, which collapses the façades to their neutral legs (see
+    Directory.Build.props). CI passes it; locally either form works, plain `dotnet test` just
+    restores more.
+  -->
   <ItemGroup>
     <ProjectReference Include="../../src/Net.Agora.Video/Net.Agora.Video.csproj" />
     <ProjectReference Include="../../src/Net.Agora.Voice/Net.Agora.Voice.csproj" />

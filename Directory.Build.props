@@ -124,6 +124,22 @@
   </PropertyGroup>
 
   <!--
+    Net.Agora.UnitTests passes AgoraNeutralOnly=true through its ProjectReferences so the façades
+    it references collapse to their neutral target frameworks. Without it, referencing them drags
+    the android/ios/macos legs into the reference graph, and merely *evaluating* those needs the
+    matching workloads installed — which would turn the unit-test job from the pipeline's fastest
+    signal (plain ubuntu, no workloads, no packed packages) into a mobile-SDK install.
+
+    Only ever set by that test project. A pack must never set it: it would silently produce
+    packages with no platform legs at all.
+  -->
+  <PropertyGroup Condition=" '$(AgoraNeutralOnly)' == 'true' ">
+    <AgoraAndroidTargetFrameworks></AgoraAndroidTargetFrameworks>
+    <AgoraIosTargetFrameworks></AgoraIosTargetFrameworks>
+    <AgoraMacosTargetFrameworks></AgoraMacosTargetFrameworks>
+  </PropertyGroup>
+
+  <!--
     ============================================================================
     Shared package metadata
     ============================================================================

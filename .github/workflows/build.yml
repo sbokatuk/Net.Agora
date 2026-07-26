@@ -63,9 +63,12 @@ env:
 jobs:
   unit-tests:
     name: unit tests
-    # No dependency on pack: Net.Agora.UnitTests links the platform-neutral façade source directly
-    # (see its own csproj) rather than referencing a packed package, so it needs neither ./artifacts
-    # nor a mobile workload — this is the fastest failure signal in the whole pipeline.
+    # No dependency on pack: Net.Agora.UnitTests references the façade projects and exercises their
+    # neutral target framework, so it needs neither ./artifacts nor a mobile workload — this is the
+    # fastest failure signal in the whole pipeline. -p:AgoraNeutralOnly=true is what keeps that
+    # true: it collapses the referenced façades to their neutral legs, because restore evaluates
+    # every leg of a referenced project and the android/ios/macos ones need workloads installed
+    # just to evaluate. See the test project's csproj.
     # Off on a scoped track release: the tagged commit already ran it on its PR.
     if: ${{ inputs.track == '' }}
     runs-on: ubuntu-latest
@@ -78,7 +81,7 @@ jobs:
           dotnet-version: 9.0.x
 
       - name: Run unit tests
-        run: dotnet test tests/Net.Agora.UnitTests --logger 'trx;LogFileName=unit-tests.trx'
+        run: dotnet test tests/Net.Agora.UnitTests -p:AgoraNeutralOnly=true --logger 'trx;LogFileName=unit-tests.trx'
 
       - name: Upload test results
         if: always()

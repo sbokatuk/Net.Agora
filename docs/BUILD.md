@@ -116,9 +116,16 @@ the sample app resolve the packages that were just built rather than whatever is
 ## Testing
 
 ```sh
-dotnet test tests/Net.Agora.UnitTests                                  # platform-neutral logic, no device
+dotnet test tests/Net.Agora.UnitTests -p:AgoraNeutralOnly=true         # platform-neutral logic, no device
 AGORA_ARTIFACTS=./artifacts dotnet test tests/Net.Agora.PackageTests   # asserts the packed .nupkg shape
 ```
+
+`AgoraNeutralOnly` collapses the referenced façades to their neutral target frameworks. It is
+optional on a machine with the mobile workloads installed — plain `dotnet test` runs the same
+tests, it just restores every façade leg on the way — and required anywhere they are not, which is
+why CI passes it: restore evaluates every target framework of a referenced project, and evaluating
+the android/ios/macos legs needs their workloads. Neither `SetTargetFramework` nor
+`AdditionalProperties` on the reference prunes that graph; only the global property does.
 
 `AGORA_ARTIFACTS` is optional if `artifacts/` is already at the repository root, which is where
 `BuildNugets.sh` writes it; the test project resolves it relative to the directory holding
