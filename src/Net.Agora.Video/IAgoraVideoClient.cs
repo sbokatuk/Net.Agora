@@ -206,5 +206,10 @@ public interface IAgoraVideoClient : IDisposable
     /// <c>Net.Agora.Extensions.FaceDetection.Android</c> / <c>.iOS</c>.
     /// </summary>
     /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    /// <remarks>
+    /// Not available on macOS: the macOS engine does not implement the underlying selector even
+    /// with the extension package referenced, so this always raises
+    /// <see cref="AgoraVideoException"/> there. Android and iOS behave as described above.
+    /// </remarks>
     void EnableFaceDetection(bool enabled);
 }

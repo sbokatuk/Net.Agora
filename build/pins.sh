@@ -22,6 +22,12 @@ export NET_AGORA_VOICE_ANDROID_VERSION; NET_AGORA_VOICE_ANDROID_VERSION="$(_prop
 export NET_AGORA_VOICE_IOS_VERSION; NET_AGORA_VOICE_IOS_VERSION="$(_prop NetAgoraVoiceIosVersion)"
 export NET_AGORA_SIGNALING_ANDROID_VERSION; NET_AGORA_SIGNALING_ANDROID_VERSION="$(_prop NetAgoraSignalingAndroidVersion)"
 export NET_AGORA_SIGNALING_IOS_VERSION; NET_AGORA_SIGNALING_IOS_VERSION="$(_prop NetAgoraSignalingIosVersion)"
+# The native macOS (AppKit) bindings, from sbokatuk/Net.Agora.Mac. Only these three products have a
+# macOS leg; run-macos-tests.sh clears their cache entries before a run for the same reason the iOS
+# script clears its own — a platform package's version does not change just because its content did.
+export NET_AGORA_VIDEO_MAC_VERSION; NET_AGORA_VIDEO_MAC_VERSION="$(_prop NetAgoraVideoMacVersion)"
+export NET_AGORA_VOICE_MAC_VERSION; NET_AGORA_VOICE_MAC_VERSION="$(_prop NetAgoraVoiceMacVersion)"
+export NET_AGORA_SIGNALING_MAC_VERSION; NET_AGORA_SIGNALING_MAC_VERSION="$(_prop NetAgoraSignalingMacVersion)"
 export NET_AGORA_CHAT_ANDROID_VERSION; NET_AGORA_CHAT_ANDROID_VERSION="$(_prop NetAgoraChatAndroidVersion)"
 export NET_AGORA_CHAT_IOS_VERSION; NET_AGORA_CHAT_IOS_VERSION="$(_prop NetAgoraChatIosVersion)"
 export NET_AGORA_WHITEBOARD_ANDROID_VERSION; NET_AGORA_WHITEBOARD_ANDROID_VERSION="$(_prop NetAgoraWhiteboardAndroidVersion)"

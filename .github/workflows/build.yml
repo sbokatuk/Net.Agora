@@ -49,6 +49,15 @@ on:
         required: false
         default: '["net8.0-android34.0", "net10.0-android36.0"]'
         type: string
+      e2e-macos-target-frameworks:
+        description: >
+          Same, for the macOS host checks. Only one leg by default: macOS has no simulator, so the
+          checks run on the runner itself and each leg is a full build of the app — and unlike the
+          mobile platforms there is no second asset set to compare, since the macOS payload is a
+          single universal slice.
+        required: false
+        default: '["net9.0-macos15.0"]'
+        type: string
       e2e-api-level:
         description: Android API level the emulator boots.
         required: false
@@ -193,9 +202,14 @@ jobs:
           - platform: ios
             os: macos-15
             tfm: net9.0-ios18.0
-            # Pinned to a simulator runtime identifier. These samples are built, never launched, so
-            # Release's startup-time AOT concerns do not apply.
-            build-args: -p:RuntimeIdentifier=iossimulator-arm64
+            # Pinned to the *device* runtime identifier, not a simulator one. These samples are
+            # built and never launched, so Release's startup-time AOT concerns do not apply — and
+            # ios-arm64 is the stricter link of the two and the one a shipped app actually uses:
+            # it AOT-compiles for real (a simulator build can fall back to the interpreter or JIT)
+            # and links the device slice of every xcframework. Nothing else in the family linked a
+            # device slice before this. Code signing off: there is no certificate on a CI runner and
+            # none is needed to prove the link.
+            build-args: -p:RuntimeIdentifier=ios-arm64 -p:EnableCodeSigning=false
           - platform: macos
             os: macos-15
             # The native macOS (AppKit) leg — Video/Voice/Signaling only. These build the
@@ -376,8 +390,73 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  e2e-macos:
+    name: macOS checks (${{ matrix.product }}, ${{ matrix.target-framework }})
+    timeout-minutes: 45
+    needs: pack
+    # Off on a scoped track release — the tagged commit was device-tested on its PR.
+    if: ${{ inputs.track == '' }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Only these three façades have a native macOS (AppKit) leg: Agora ships no macOS SDK for
+        # Chat, and netless none for the boards. Until this job the macOS leg was build-only —
+        # the sample build proved it links, and nothing proved the packaged Net.Agora.*.Mac payload
+        # loads or that the client drives it. It found an unimplemented selector on its first run.
+        product: [Video, Voice, Signaling]
+        target-framework: ${{ fromJSON(inputs.e2e-macos-target-frameworks) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: ./.github/scripts/select-xcode.sh
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Install the macOS workload
+        run: |
+          # Same shape as the iOS job: the app is built for the target framework under test, so the
+          # band that owns it needs the workload. global.json pins .NET 9; the app may need .NET 10.
+          mkdir -p "${RUNNER_TEMP}/sdk10"
+          ( cd "${RUNNER_TEMP}/sdk10" \
+            && dotnet new globaljson --sdk-version "$(dotnet --list-sdks | grep '^10\.' | tail -1 | cut -d' ' -f1)" --force \
+            && dotnet workload install macos )
+          dotnet workload install macos
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts
+
+      - name: Run checks on the host
+        run: |
+          . ./build/pins.sh
+          case "${{ matrix.product }}" in
+            Video) base="${AGORA_VIDEO_PACKAGE_VERSION}" ;;
+            Voice) base="${AGORA_VOICE_PACKAGE_VERSION}" ;;
+            Signaling) base="${AGORA_SIGNALING_PACKAGE_VERSION}" ;;
+          esac
+          version="${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
+          ./.github/scripts/run-macos-tests.sh "${version}" "${{ matrix.target-framework }}" "${{ matrix.product }}"
+
+      - name: Upload macOS logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-test-logs-${{ matrix.product }}-${{ matrix.target-framework }}
+          path: macos-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
   e2e-android:
-    name: emulator checks (${{ matrix.product }}, ${{ matrix.target-framework }})
+    name: emulator checks (${{ matrix.product }}, ${{ matrix.target-framework }}${{ matrix.shrink == 1 && ', shrink' || '' }})
     timeout-minutes: 60
     needs: pack
     # Off on a scoped track release — the tagged commit was device-tested on its PR.
@@ -388,6 +467,16 @@ jobs:
         # One leg per product — see the iOS job's matrix comment.
         product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
         target-framework: ${{ fromJSON(inputs.e2e-android-target-frameworks) }}
+        shrink: [0]
+        include:
+          # One extra leg with R8 on. Release alone does not shrink Java (AndroidLinkTool is empty
+          # by default), so without this nothing here proves the keep rules the platform packages
+          # ship in buildTransitive/ actually reach an app through the façade. Whiteboard is the
+          # product to do it on: its rules are the ones whose absence is silent — a WebView board
+          # that renders blank with no error — because the JavaScript bridge is reached by name.
+          - product: Whiteboard
+            target-framework: net9.0-android35.0
+            shrink: 1
     # Linux, unlike the pack job: the emulator needs KVM, which the macOS runners do not have, and
     # the Android head of the device app needs no Apple toolchain to build.
     runs-on: ubuntu-latest
@@ -474,13 +563,13 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front emulated
           disable-animations: true
-          script: ./.github/scripts/run-emulator-tests.sh "$AGORA_E2E_VERSION" "${{ matrix.target-framework }}" "${{ matrix.product }}"
+          script: AGORA_SHRINK=${{ matrix.shrink }} ./.github/scripts/run-emulator-tests.sh "$AGORA_E2E_VERSION" "${{ matrix.target-framework }}" "${{ matrix.product }}"
 
       - name: Upload emulator logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: emulator-test-logs-${{ matrix.product }}-${{ matrix.target-framework }}
+          name: emulator-test-logs-${{ matrix.product }}-${{ matrix.target-framework }}${{ matrix.shrink == 1 && '-shrink' || '' }}
           path: emulator-tests.log
           if-no-files-found: ignore
           retention-days: 7

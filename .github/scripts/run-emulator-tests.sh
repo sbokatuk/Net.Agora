@@ -76,19 +76,38 @@ rm -rf "${HOME}/.nuget/packages/net.agora.fastboard.android/${NET_AGORA_FASTBOAR
 rm -rf "${REPO_ROOT}/tests/Net.Agora.DeviceTests/obj" \
        "${REPO_ROOT}/tests/Net.Agora.DeviceTests/bin"
 
-echo "==> Release build/link check (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version})"
+# AGORA_SHRINK=1 adds R8 to the Release build/link check below. Off by default so the ordinary legs
+# keep meaning "the façade and its payload survive trimming and AOT"; on, the leg additionally
+# proves the platform packages' R8 keep rules travel through the façade into an app - the rules ship
+# in the binding packages' buildTransitive/ and reach a consumer transitively, which is a path only
+# this repository can exercise. Empty-array expansion is guarded for macOS's bash 3.2 under set -u.
+SHRINK_ARGS=()
+if [ "${AGORA_SHRINK:-0}" = "1" ]; then
+    SHRINK_ARGS=(-p:AndroidLinkTool=r8)
+fi
+
+echo "==> Release build/link check (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version}, shrink=${AGORA_SHRINK:-0})"
 # A Release build as a build-and-link check only - not installed, not run. Release turns on the
-# managed linker/trimmer, R8 and AOT, and this proves the Agora binding survives all three and
-# still produces an .apk, which a Debug build (none of them on) never exercises. It deliberately
-# stops at the build and does not launch the app: the AOT image is compiled against the trimmed
-# assembly set and disagrees with what the runtime loads, so a Release app aborts on startup before
-# a single check runs - which is why the e2e run below is a separate Debug build.
+# managed linker/trimmer (PublishTrimmed) and AOT (RunAOTCompilation), and this proves the Agora
+# binding survives both and still produces an .apk, which a Debug build (neither on) never
+# exercises.
+#
+# It does NOT cover R8 on its own: Release leaves AndroidLinkTool empty, so Java shrinking is off
+# unless a project opts in - measured on a Release build of the sample, which produces no
+# mapping.txt. AGORA_SHRINK=1 adds it (see below), which is what proves the keep rules the platform
+# packages ship in buildTransitive/ reach an app through the façade.
+#
+# The check deliberately stops at the build and does not launch the app: the AOT image is compiled
+# against the trimmed assembly set and disagrees with what the runtime loads, so a Release app
+# aborts on startup before a single check runs - which is why the e2e run below is a separate Debug
+# build.
 ( cd "${SDK_DIR}" && dotnet build "${PROJECT}" \
     --configuration Release \
     -p:AgoraDeviceProduct="${PRODUCT}" \
     -p:AgoraPackageVersion="${VERSION}" \
     -p:AgoraDeviceTargetFramework="${TARGET_FRAMEWORK}" \
-    -p:RuntimeIdentifier="${DEVICE_RID}" )
+    -p:RuntimeIdentifier="${DEVICE_RID}" \
+    ${SHRINK_ARGS[@]+"${SHRINK_ARGS[@]}"} )
 
 echo "==> building device tests for the e2e run (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version})"
 # Debug for the run, for the reason above: a Release build aborts on startup, so the checks can

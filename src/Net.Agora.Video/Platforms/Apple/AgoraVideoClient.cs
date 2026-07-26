@@ -233,5 +233,24 @@ public sealed partial class AgoraVideoClient
     private int SetColorEnhanceCore(bool enabled) =>
         (int)_engine.SetColorEnhanceOptions(enabled, new AgoraColorEnhanceOptions());
 
-    private int EnableFaceDetectionCore(bool enabled) => (int)_engine.EnableFaceDetection(enabled);
+    private int EnableFaceDetectionCore(bool enabled)
+    {
+#if MACOS
+        _ = enabled;
+
+        // The macOS engine does not implement -enableFaceDetection:, even with
+        // Net.Agora.Extensions.FaceDetection.Mac referenced and its framework loaded — sending the
+        // selector raises "unrecognized selector", which is why Net.Agora.Video.Mac deliberately
+        // does not bind it. Reported as a refusal rather than silently ignored: unlike
+        // SwitchCamera and SetSpeakerphone, which a Mac expresses as device selection instead,
+        // this is a feature the platform's engine simply lacks, and a caller that asked for it and
+        // got nothing would have no way to find out.
+        //
+        // -2 is the SDK's own invalid-argument/unsupported code, so Check() turns it into the same
+        // AgoraVideoException the extension switches raise everywhere else.
+        return -2;
+#else
+        return (int)_engine.EnableFaceDetection(enabled);
+#endif
+    }
 }
