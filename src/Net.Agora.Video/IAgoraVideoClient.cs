@@ -14,6 +14,21 @@ namespace Net.Agora.Video;
 /// <c>UIView</c>) and is therefore not part of this interface — call <c>SetLocalView</c> /
 /// <c>SetRemoteView</c> on the concrete <see cref="AgoraVideoClient"/>.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <strong>One live client per process.</strong> Both SDKs' engines are process-wide singletons
+/// (<c>sharedEngineWithConfig:delegate:</c> / <c>RtcEngine.create</c>, torn down by a static
+/// destroy), so constructing a second client while one is alive throws
+/// <see cref="InvalidOperationException"/> rather than silently stealing the first one's
+/// callbacks. Dispose the client you have before creating another; a two-page app should share
+/// one instance rather than construct one per page.
+/// </para>
+/// <para>
+/// <strong>Events arrive on SDK threads.</strong> Every event below is raised on whichever thread
+/// the native SDK chose, not the UI thread. Marshal before touching UI — in MAUI that is
+/// <c>MainThread.BeginInvokeOnMainThread</c>.
+/// </para>
+/// </remarks>
 public interface IAgoraVideoClient : IDisposable
 {
     /// <summary>This client joined <see cref="AgoraChannelEventArgs.ChannelId"/> successfully.</summary>
@@ -191,5 +206,10 @@ public interface IAgoraVideoClient : IDisposable
     /// <c>Net.Agora.Extensions.FaceDetection.Android</c> / <c>.iOS</c>.
     /// </summary>
     /// <inheritdoc cref="SetNoiseSuppression" path="/exception" />
+    /// <remarks>
+    /// Not available on macOS: the macOS engine does not implement the underlying selector even
+    /// with the extension package referenced, so this always raises
+    /// <see cref="AgoraVideoException"/> there. Android and iOS behave as described above.
+    /// </remarks>
     void EnableFaceDetection(bool enabled);
 }

@@ -1,10 +1,21 @@
 namespace Net.Agora.Signaling;
 
 /// <summary>Raised when a signaling operation fails, or the SDK reports an error.</summary>
-public sealed class AgoraSignalingException(string message, int errorCode) : Exception(message)
+public sealed class AgoraSignalingException : Exception
 {
+    /// <summary>Creates the exception for an SDK failure that reported <paramref name="errorCode"/>.</summary>
+    public AgoraSignalingException(string message, int errorCode)
+        : base(message) => ErrorCode = errorCode;
+
+    /// <summary>
+    /// As above, keeping the platform exception that caused it — used where the failure arrives
+    /// as a native exception rather than a code, so the original stack is not thrown away.
+    /// </summary>
+    public AgoraSignalingException(string message, int errorCode, Exception innerException)
+        : base(message, innerException) => ErrorCode = errorCode;
+
     /// <summary>The SDK's own error code — <c>AgoraRtmErrorCode</c> on iOS, <c>RtmConstants.RtmErrorCode</c> on Android.</summary>
-    public int ErrorCode { get; } = errorCode;
+    public int ErrorCode { get; }
 }
 
 /// <summary>Raised for <see cref="IAgoraSignalingClient.MessageReceived"/>.</summary>

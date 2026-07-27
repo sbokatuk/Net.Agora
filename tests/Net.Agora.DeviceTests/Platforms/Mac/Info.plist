@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0</string>
+	<!--
+		The checks never open a device — no channel is joined and the App ID is unregistered — but
+		the engine claims the microphone and camera as it initialises, and macOS terminates a
+		process that touches either without a usage description. Present so a failure here is a
+		failing check rather than a kill.
+	-->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Net.Agora device checks initialise the audio engine.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Net.Agora device checks initialise the video engine.</string>
+	<!-- Headless: no dock icon, no menu bar. The head sets the same policy in code. -->
+	<key>LSUIElement</key>
+	<true/>
+</dict>
+</plist>

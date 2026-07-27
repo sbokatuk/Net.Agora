@@ -15,12 +15,12 @@
     been observed lagging Maven Central by a point version.
   -->
   <PropertyGroup>
-    <NetAgoraVideoAndroidVersion>4.6.3.4</NetAgoraVideoAndroidVersion>
-    <NetAgoraVideoIosVersion>4.6.2.4</NetAgoraVideoIosVersion>
-    <NetAgoraVoiceAndroidVersion>4.6.3.4</NetAgoraVoiceAndroidVersion>
-    <NetAgoraVoiceIosVersion>4.6.2.4</NetAgoraVoiceIosVersion>
-    <NetAgoraSignalingAndroidVersion>2.2.6.1</NetAgoraSignalingAndroidVersion>
-    <NetAgoraSignalingIosVersion>2.2.6.1</NetAgoraSignalingIosVersion>
+    <NetAgoraVideoAndroidVersion>4.6.3.5</NetAgoraVideoAndroidVersion>
+    <NetAgoraVideoIosVersion>4.6.2.5</NetAgoraVideoIosVersion>
+    <NetAgoraVoiceAndroidVersion>4.6.3.5</NetAgoraVoiceAndroidVersion>
+    <NetAgoraVoiceIosVersion>4.6.2.5</NetAgoraVoiceIosVersion>
+    <NetAgoraSignalingAndroidVersion>2.2.6.2</NetAgoraSignalingAndroidVersion>
+    <NetAgoraSignalingIosVersion>2.2.6.2</NetAgoraSignalingIosVersion>
     <!--
       The native macOS (AppKit) bindings, from sbokatuk/Net.Agora.Mac. Only Video, Voice and
       Signaling have a macOS leg — Agora ships no native macOS SDK for Chat/Whiteboard/Fastboard.
@@ -28,20 +28,20 @@
       Agora ships no slice for), on their own version lines: the macOS RTC line matches iOS at 4.6.2
       today, the RTM line is 2.2.8.
     -->
-    <NetAgoraVideoMacVersion>4.6.2.1</NetAgoraVideoMacVersion>
-    <NetAgoraVoiceMacVersion>4.6.2.1</NetAgoraVoiceMacVersion>
-    <NetAgoraSignalingMacVersion>2.2.8.1</NetAgoraSignalingMacVersion>
-    <NetAgoraChatAndroidVersion>1.4.0.1</NetAgoraChatAndroidVersion>
-    <NetAgoraChatIosVersion>1.4.0.1</NetAgoraChatIosVersion>
+    <NetAgoraVideoMacVersion>4.6.2.2</NetAgoraVideoMacVersion>
+    <NetAgoraVoiceMacVersion>4.6.2.2</NetAgoraVoiceMacVersion>
+    <NetAgoraSignalingMacVersion>2.2.8.2</NetAgoraSignalingMacVersion>
+    <NetAgoraChatAndroidVersion>1.4.0.2</NetAgoraChatAndroidVersion>
+    <NetAgoraChatIosVersion>1.4.0.2</NetAgoraChatIosVersion>
     <!--
       The one product whose two platform packages sit on different version lines. netless keeps the
       Android and iOS whiteboard SDKs in separate repositories with separate release cadences, so
       unlike the RTC pair there is no reason to expect them to meet.
     -->
-    <NetAgoraWhiteboardAndroidVersion>2.16.123.1</NetAgoraWhiteboardAndroidVersion>
-    <NetAgoraWhiteboardIosVersion>2.16.137.1</NetAgoraWhiteboardIosVersion>
-    <NetAgoraFastboardAndroidVersion>1.8.1.1</NetAgoraFastboardAndroidVersion>
-    <NetAgoraFastboardIosVersion>1.4.5.1</NetAgoraFastboardIosVersion>
+    <NetAgoraWhiteboardAndroidVersion>2.16.123.2</NetAgoraWhiteboardAndroidVersion>
+    <NetAgoraWhiteboardIosVersion>2.16.137.2</NetAgoraWhiteboardIosVersion>
+    <NetAgoraFastboardAndroidVersion>1.8.1.2</NetAgoraFastboardAndroidVersion>
+    <NetAgoraFastboardIosVersion>1.4.5.2</NetAgoraFastboardIosVersion>
 
     <!--
       Each product's own version tracks its iOS platform package's native version component — the
@@ -52,27 +52,27 @@
     -->
     <AgoraVideoIosVersion>4.6.2</AgoraVideoIosVersion>
     <AgoraVoiceIosVersion>4.6.2</AgoraVoiceIosVersion>
-    <AgoraBindingRevision>4</AgoraBindingRevision>
+    <AgoraBindingRevision>5</AgoraBindingRevision>
     <!--
       Signaling is a different product with its own native version line (2.2.x) and its own
       revision counter — it did not exist when the RTC products shipped revision 1.
     -->
     <AgoraSignalingIosVersion>2.2.6</AgoraSignalingIosVersion>
-    <AgoraSignalingBindingRevision>1</AgoraSignalingBindingRevision>
+    <AgoraSignalingBindingRevision>2</AgoraSignalingBindingRevision>
     <!--
       Chat is a third product on a third native line — 1.4.x — with its own revision counter, for
       the same reason Signaling has one.
     -->
     <AgoraChatIosVersion>1.4.0</AgoraChatIosVersion>
-    <AgoraChatBindingRevision>1</AgoraChatBindingRevision>
+    <AgoraChatBindingRevision>2</AgoraChatBindingRevision>
     <!--
       Whiteboard tracks its iOS line, like every other product here — which for this one means the
       newer of the two.
     -->
     <AgoraWhiteboardIosVersion>2.16.137</AgoraWhiteboardIosVersion>
-    <AgoraWhiteboardBindingRevision>1</AgoraWhiteboardBindingRevision>
+    <AgoraWhiteboardBindingRevision>2</AgoraWhiteboardBindingRevision>
     <AgoraFastboardIosVersion>1.4.5</AgoraFastboardIosVersion>
-    <AgoraFastboardBindingRevision>1</AgoraFastboardBindingRevision>
+    <AgoraFastboardBindingRevision>2</AgoraFastboardBindingRevision>
     <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
   </PropertyGroup>
 
@@ -111,6 +111,35 @@
     -->
     <AgoraMacosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net9' ">net8.0-macos15.0;net9.0-macos15.0</AgoraMacosTargetFrameworks>
     <AgoraMacosTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net10' ">net10.0-macos26.0</AgoraMacosTargetFrameworks>
+
+    <!--
+      The neutral leg, for the base facade packages only (not .Maui — the views need a platform).
+      It exists so a plain class library — shared ViewModels, a net9.0-windows or Mac Catalyst
+      head, a test project — can *reference* the package, program against IAgora*Client, and get
+      a PlatformNotSupportedException at construction instead of today's NU1202 restore failure
+      with no explanation. Compiles Platforms/Neutral, which binds nothing.
+    -->
+    <AgoraNeutralTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net9' ">net8.0;net9.0</AgoraNeutralTargetFrameworks>
+    <AgoraNeutralTargetFrameworks Condition=" '$(AgoraSdkBand)' == 'net10' ">net10.0</AgoraNeutralTargetFrameworks>
+  </PropertyGroup>
+
+  <!--
+    Net.Agora.UnitTests is run with -p:AgoraNeutralOnly=true so the façades it references collapse
+    to their neutral target frameworks. It has to be a global property rather than reference
+    metadata: restore walks every target framework of a referenced project regardless of what the
+    reference asks for, so neither SetTargetFramework nor AdditionalProperties prunes it. Without
+    it, referencing them drags the android/ios/macos legs into the reference graph, and merely
+    *evaluating* those needs the
+    matching workloads installed — which would turn the unit-test job from the pipeline's fastest
+    signal (plain ubuntu, no workloads, no packed packages) into a mobile-SDK install.
+
+    Only ever set by that test project. A pack must never set it: it would silently produce
+    packages with no platform legs at all.
+  -->
+  <PropertyGroup Condition=" '$(AgoraNeutralOnly)' == 'true' ">
+    <AgoraAndroidTargetFrameworks></AgoraAndroidTargetFrameworks>
+    <AgoraIosTargetFrameworks></AgoraIosTargetFrameworks>
+    <AgoraMacosTargetFrameworks></AgoraMacosTargetFrameworks>
   </PropertyGroup>
 
   <!--

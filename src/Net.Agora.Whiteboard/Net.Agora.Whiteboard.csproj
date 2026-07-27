@@ -21,7 +21,7 @@
     those two repositories' own build/BuildNugets.sh has packed them there). See docs/BUILD.md.
   -->
   <PropertyGroup>
-    <TargetFrameworks>$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
+    <TargetFrameworks>$(AgoraNeutralTargetFrameworks);$(AgoraAndroidTargetFrameworks);$(AgoraIosTargetFrameworks)</TargetFrameworks>
 
     <AssemblyName>Net.Agora.Whiteboard</AssemblyName>
     <RootNamespace>Net.Agora.Whiteboard</RootNamespace>
@@ -39,6 +39,15 @@
   -->
   <ItemGroup>
     <Compile Remove="Platforms/**/*.cs" />
+  </ItemGroup>
+
+  <!--
+    The neutral leg (plain net8.0/net9.0/net10.0): no binding, no platform reference — a client
+    whose constructor throws PlatformNotSupportedException. See AgoraNeutralTargetFrameworks in
+    Directory.Build.props for why it ships.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == ''">
+    <Compile Include="Platforms/Neutral/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">

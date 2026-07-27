@@ -63,6 +63,13 @@
     <AndroidManifest>Platforms/Android/AndroidManifest.xml</AndroidManifest>
   </PropertyGroup>
 
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
+    <!-- The floor .NET for macOS enforces — see sbokatuk/Net.Agora.Mac's src/Agora.Binding.props. -->
+    <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
+    <!-- Same reasoning as the iOS head: keep the captured stdout to the checks, not runtime chatter. -->
+    <MtouchExtraArgs>--setenv=MONO_LOG_LEVEL=error</MtouchExtraArgs>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Remove="Platforms/**/*.cs" />
     <None Include="Platforms/**/*.cs" />
@@ -92,6 +99,31 @@
   </ItemGroup>
 
   <!--
+    The macOS (AppKit) head. Same LogicalName requirement as iOS — see the comment above; the raw
+    macOS SDK locates a manifest the same way the iOS one does.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
+    <Compile Include="Platforms/Mac/**/*.cs" />
+    <None Remove="Platforms/Mac/**/*.cs" />
+    <None Include="Platforms/Mac/Info.plist" LogicalName="Info.plist" />
+  </ItemGroup>
+
+  <!--
+    Only Video, Voice and Signaling have a macOS leg: Agora ships no native macOS SDK for Chat, and
+    netless none for Whiteboard/Fastboard, so those façades are android+ios only. Asking for one of
+    them on a macos target framework would fail restore with a message about the package not
+    supporting it, which says nothing useful — fail here instead, naming the reason.
+  -->
+  <Target Name="AgoraRejectUnsupportedMacosProduct"
+          BeforeTargets="Build;Restore"
+          Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'
+                     And '$(AgoraDeviceProduct)' != 'Video'
+                     And '$(AgoraDeviceProduct)' != 'Voice'
+                     And '$(AgoraDeviceProduct)' != 'Signaling'">
+    <Error Text="AgoraDeviceProduct '$(AgoraDeviceProduct)' has no macOS leg — only Video, Voice and Signaling do. Agora ships no native macOS SDK for Chat, and netless none for the boards." />
+  </Target>
+
+  <!--
     The device tests deliberately consume the packed NuGet from ./artifacts rather than a
     ProjectReference, so they exercise the artifact that actually gets published — including its
     dependency on Net.Agora.Video.Android / .iOS, which a ProjectReference would prove nothing
@@ -116,6 +148,7 @@
     -->
     <AgoraExtensionAndroidVersion Condition=" '$(AgoraExtensionAndroidVersion)' == '' ">$(NetAgoraVideoAndroidVersion)</AgoraExtensionAndroidVersion>
     <AgoraExtensionIosVersion Condition=" '$(AgoraExtensionIosVersion)' == '' ">$(NetAgoraVideoIosVersion)</AgoraExtensionIosVersion>
+    <AgoraExtensionMacVersion Condition=" '$(AgoraExtensionMacVersion)' == '' ">$(NetAgoraVideoMacVersion)</AgoraExtensionMacVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -183,6 +216,17 @@
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
     <PackageReference Include="@(AgoraExtension->'Net.Agora.Extensions.%(Identity).iOS')"
                       Version="$(AgoraExtensionIosVersion)" />
+  </ItemGroup>
+
+  <!--
+    The macOS extension packages. Without these the ExtensionsAreAvailable check fails on the macos
+    leg exactly as it would in a consumer's app — which is how this group came to exist: the leg was
+    added, the check refused SetLowLightEnhance with code -2, and the twelve Net.Agora.Extensions.*.Mac
+    packages turned out to have had no runtime coverage anywhere.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
+    <PackageReference Include="@(AgoraExtension->'Net.Agora.Extensions.%(Identity).Mac')"
+                      Version="$(AgoraExtensionMacVersion)" />
   </ItemGroup>
 
   <!--
