@@ -848,15 +848,33 @@ public static class SmokeTests
 
 #if !AGORA_VOICE
         // Video-only: the voice engine has no pipeline for these to act on, and its facade does
-        // not expose them. These three are the ones whose refusal is unambiguous — an Android
-        // emulator and an iOS simulator both accept them when the ClearVision payload is present
-        // and refuse them when it is not.
+        // not expose them.
+        //
+        // The denoiser is the one asserted everywhere: an Android emulator, an iOS simulator and a
+        // macOS host all accept it when the ClearVision payload is present and refuse it when it is
+        // not, which is what makes it the payload's proof. It and the two enhancers ship in the
+        // same framework, so accepting it is what says the framework loaded.
         Client.SetVideoDenoiser(true);
+
+#if MACOS
+        // The two *enhancers* are reported rather than asserted on macOS. They need a working video
+        // pipeline, not just the payload: a GitHub macos-15 runner is a headless VM with no camera,
+        // and it refuses SetLowLightEnhance with -1 there while accepting the denoiser from the same
+        // framework — measured, on the run that added this leg. A developer's Mac accepts all three.
+        // Asserting would fail the suite on the hardware it runs on rather than on a regression,
+        // which is the same reason the virtual background and face detection are reported below.
+        Report($"low-light enhance: {Attempt(() => Client.SetLowLightEnhance(true))}");
+        Report($"colour enhance: {Attempt(() => Client.SetColorEnhance(true))}");
+        Attempt(() => Client.SetColorEnhance(false));
+        Attempt(() => Client.SetLowLightEnhance(false));
+#else
         Client.SetLowLightEnhance(true);
         Client.SetColorEnhance(true);
 
         Client.SetColorEnhance(false);
         Client.SetLowLightEnhance(false);
+#endif
+
         Client.SetVideoDenoiser(false);
 
         // Reported rather than asserted. These two answer -4 ("not supported") for a device that
