@@ -24,13 +24,23 @@ on:
         required: false
         default: ''
         type: string
+      verify:
+        description: >
+          Whether to run the verification jobs — unit tests, package validation, the sample
+          builds, the Release link checks and the e2e suites. Pull requests leave it at true, and
+          are the only place any of this runs. Releases pass false: the tagged commit was already
+          verified on its pull request, so a tag packs and publishes and nothing more. The gate is
+          the same input, with the same name and the same meaning, in every repository.
+        required: false
+        default: true
+        type: boolean
       track:
         description: >
           Restrict the build to one release track — rtc, signaling, chat, whiteboard or fastboard
-          (see build/tracks.tsv). Packs only that track's products and skips the CI-only jobs
-          (unit-tests, validate, e2e), which the pull request that merged this commit already ran.
-          Empty, the default, builds and validates the whole repository — what push and
-          pull_request want. Releases set it, so a per-track tag publishes only its own track.
+          (see build/tracks.tsv). Packs only that track's products. Empty, the default, builds the
+          whole repository — what pull_request wants. Releases set it, so a per-track tag
+          publishes only its own track. Orthogonal to `verify`: this scopes *what* is packed,
+          `verify` decides whether the packed result is then exercised.
         required: false
         default: ''
         type: string
@@ -78,8 +88,8 @@ jobs:
     # true: it collapses the referenced façades to their neutral legs, because restore evaluates
     # every leg of a referenced project and the android/ios/macos ones need workloads installed
     # just to evaluate. See the test project's csproj.
-    # Off on a scoped track release: the tagged commit already ran it on its PR.
-    if: ${{ inputs.track == '' }}
+    # verify=false on a release: the tagged commit already ran this on its pull request.
+    if: ${{ inputs.verify }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -164,10 +174,10 @@ jobs:
   build-samples:
     name: sample build (${{ matrix.product }}, ${{ matrix.platform }})
     needs: pack
-    # Off on a scoped track release: a CI-only build/link check, and the scoped pack packed only the
-    # tagged track's products - the other samples could not restore at this tag. The merged commit
-    # already ran this on its pull request.
-    if: ${{ inputs.track == '' }}
+    # verify=false on a release: this is a CI-only build/link check, and a scoped pack packs only
+    # the tagged track's products - the other samples could not restore at that tag anyway. The
+    # merged commit already ran this on its pull request.
+    if: ${{ inputs.verify }}
     # Android needs no Apple toolchain, so its leg runs on Linux (faster and cheaper); iOS must have
     # Xcode. Chosen per matrix leg — see the include block below.
     runs-on: ${{ matrix.os }}
@@ -291,9 +301,9 @@ jobs:
   validate:
     name: validate packages
     needs: pack
-    # Skipped on a scoped track release: the package tests assert the whole product set, which a
+    # verify=false on a release: the package tests assert the whole product set, which a
     # single-track pack does not produce — and the merged commit already ran them on its PR.
-    if: ${{ inputs.track == '' }}
+    if: ${{ inputs.verify }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -325,8 +335,8 @@ jobs:
     name: simulator checks (${{ matrix.product }}, ${{ matrix.target-framework }})
     timeout-minutes: 45
     needs: pack
-    # Off on a scoped track release — the tagged commit was device-tested on its PR.
-    if: ${{ inputs.track == '' }}
+    # verify=false on a release — the tagged commit was device-tested on its pull request.
+    if: ${{ inputs.verify }}
     runs-on: macos-15
     strategy:
       # fail-fast off: when one target framework breaks it is worth knowing whether the other did
@@ -394,8 +404,8 @@ jobs:
     name: macOS checks (${{ matrix.product }}, ${{ matrix.target-framework }})
     timeout-minutes: 45
     needs: pack
-    # Off on a scoped track release — the tagged commit was device-tested on its PR.
-    if: ${{ inputs.track == '' }}
+    # verify=false on a release — the tagged commit was device-tested on its pull request.
+    if: ${{ inputs.verify }}
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -459,8 +469,8 @@ jobs:
     name: emulator checks (${{ matrix.product }}, ${{ matrix.target-framework }}${{ matrix.shrink == 1 && ', shrink' || '' }})
     timeout-minutes: 60
     needs: pack
-    # Off on a scoped track release — the tagged commit was device-tested on its PR.
-    if: ${{ inputs.track == '' }}
+    # verify=false on a release — the tagged commit was device-tested on its pull request.
+    if: ${{ inputs.verify }}
     strategy:
       fail-fast: false
       matrix:
