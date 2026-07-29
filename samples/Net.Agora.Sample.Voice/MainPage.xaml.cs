@@ -39,6 +39,7 @@ public partial class MainPage : ContentPage
 
         SetBusy(true);
 
+        AgoraVoiceClient? client = null;
         try
         {
             // Built here rather than in the constructor: on Android CreateClient needs the
@@ -50,7 +51,7 @@ public partial class MainPage : ContentPage
                 DefaultToSpeakerphone = SpeakerSwitch.IsToggled,
             };
 
-            var client = options.CreateClient();
+            client = options.CreateClient();
 
             // The SDK raises callbacks on its own thread, so anything touching the UI hops back.
             client.Joined += (_, ev) => Append($"joined {ev.ChannelId} as {ev.Uid}");
@@ -83,9 +84,15 @@ public partial class MainPage : ContentPage
             _client = client;
             SetJoined(true);
         }
-        catch (AgoraVoiceException exception)
+        catch (Exception exception) when (exception is AgoraVoiceException or InvalidOperationException)
         {
+            // The RTC engine is a process-wide singleton (see AgoraVoiceClient's constructor
+            // guard): a client that fails to join must be disposed here, or it keeps holding the
+            // engine and every later Join attempt throws InvalidOperationException instead of
+            // getting a clean retry. That guard is not an AgoraVoiceException, so it has to be
+            // caught here too — letting it through crashed the app on a second Join tap.
             Append($"failed to join: {exception.Message}");
+            client?.Dispose();
         }
         finally
         {
@@ -95,7 +102,12 @@ public partial class MainPage : ContentPage
 
     private void OnLeaveClicked(object sender, EventArgs e)
     {
-        _client?.Leave();
+        // Dispose, not just Leave: the RTC engine is a process-wide singleton (see
+        // AgoraEngineSlot), released only on Dispose. OnJoinClicked always builds a fresh client,
+        // so leaving without disposing the old one means the next Join finds the slot still taken
+        // and throws — a rejoin after Leave would look broken from a bug here, not the engine.
+        _client?.Dispose();
+        _client = null;
         Append("left");
         SetJoined(false);
     }

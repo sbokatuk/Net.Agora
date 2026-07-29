@@ -219,6 +219,19 @@ public sealed partial class AgoraChatClient
 
         public void OnTokenExpired() => owner.RaiseForcedLogout(AgoraChatLogoutReason.TokenExpired);
 
+        // Not surfaced by this façade, but the native SDK calls both unconditionally on every
+        // login regardless of whether anything overrides them — the generated Java wrapper only
+        // gets an override for members this class actually implements, so leaving these out
+        // throws AbstractMethodError on the SDK's own callback thread the moment offline message
+        // sync starts, crashing the app right after a successful login.
+        public void OnOfflineMessageSyncStart()
+        {
+        }
+
+        public void OnOfflineMessageSyncFinish()
+        {
+        }
+
         private static AgoraChatLogoutReason ToLogoutReason(int errorCode) => errorCode switch
         {
             Error.UserLoginAnotherDevice or Error.UserKickedByOtherDevice or Error.UserBindAnotherDevice
@@ -232,7 +245,10 @@ public sealed partial class AgoraChatClient
     /// <summary>
     /// Translates <c>MessageListener</c>'s callbacks into the shared partial's Raise* calls. Only
     /// arrival is surfaced; read receipts, delivery receipts, recall, reactions and pinning are
-    /// not part of this façade.
+    /// not part of this façade — but every member below still needs a body, even an empty one:
+    /// the native SDK calls whichever of these apply to a given message unconditionally, and the
+    /// generated Java wrapper only gets an override for members this class actually implements
+    /// (see <see cref="ConnectionListener"/>'s offline-sync members for the same reason).
     /// </summary>
     private sealed class MessageListener(AgoraChatClient owner) : Java.Lang.Object, IMessageListener
     {
@@ -247,6 +263,51 @@ public sealed partial class AgoraChatClient
             {
                 owner.RaiseMessageReceived(ToMessage(message));
             }
+        }
+
+        public void OnCmdMessageReceived(IList<NativeChatMessage>? messages)
+        {
+        }
+
+        public void OnMessageDelivered(IList<NativeChatMessage>? messages)
+        {
+        }
+
+        public void OnMessageRead(IList<NativeChatMessage>? messages)
+        {
+        }
+
+        public void OnGroupMessageRead(IList<GroupReadAck>? groupReadAcks)
+        {
+        }
+
+        public void OnReadAckForGroupMessageUpdated()
+        {
+        }
+
+        public void OnMessageRecalled(IList<NativeChatMessage>? messages)
+        {
+        }
+
+        public void OnMessageRecalledWithExt(IList<RecallMessageInfo>? recallMessageInfo)
+        {
+        }
+
+        public void OnMessageChanged(NativeChatMessage message, Java.Lang.Object? change)
+        {
+        }
+
+        public void OnMessageContentChanged(NativeChatMessage messageModified, string operatorId, long operationTime)
+        {
+        }
+
+        public void OnMessagePinChanged(
+            string messageId, string conversationId, MessagePinInfo.PinOperation pinOperation, MessagePinInfo? pinInfo)
+        {
+        }
+
+        public void OnReactionChanged(IList<MessageReactionChange>? messageReactionChangeList)
+        {
         }
     }
 }

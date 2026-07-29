@@ -70,10 +70,32 @@ public sealed partial class AgoraWhiteboardClient
             room =>
             {
                 _room = room;
+                _boardView.CallFocusView();
+                _boardView.EvaluateJavascript(FixContainerHeightScript);
+
                 complete(null);
             },
             error => complete(new AgoraWhiteboardException(error))));
     }
+
+    // whiteboard-android's page never gives its own #root / #whiteboard-container a height: they
+    // sit under a plain, unstyled div with no CSS driving it, so the canvas inside inherits 0 —
+    // confirmed live over chrome://inspect (canvas w=672 h=0 with window.innerHeight correctly
+    // reporting 387). A 0-height canvas neither paints nor maps touch coordinates, so drawing
+    // silently does nothing and no history entry is ever recorded — no error anywhere in logcat.
+    // window.innerHeight itself is unaffected and always correct, so pull the real height from
+    // there rather than passing one in from the native side.
+    private const string FixContainerHeightScript = """
+        (function () {
+            var h = window.innerHeight + 'px';
+            ['root', 'whiteboard-container'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) { el.style.height = h; }
+            });
+            document.documentElement.style.height = h;
+            document.body.style.height = h;
+        })();
+        """;
 
     private void DisconnectCore()
     {
