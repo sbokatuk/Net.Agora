@@ -1,0 +1,37 @@
+# What build/check-upstream.sh watches, and the single source of truth for it.
+#
+# The script (shared verbatim across every repository in these families) knows how to query each
+# ecosystem but nothing about which components matter here. This repository binds nothing native:
+# what it pins are the platform binding packages published from the sibling repositories, by exact
+# version, so a platform release that this umbrella has not been re-pinned behind is invisible -
+# consumers of the umbrella keep resolving the older binding and nothing says so.
+#
+# That is what the `nuget` rows below watch. The check is deliberately asymmetric: a pin BEHIND
+# nuget.org is a finding (re-pin this repository), a pin AHEAD of it is the normal mid-flight
+# state of a release train (platform repositories publish first) and is only logged.
+#
+# Columns are single-tab-separated.
+#   group    reporting group - one GitHub issue per group, titled with this text
+#   label    how the component is named inside the issue
+#   kind     cocoapods | maven | github-release | github-tag | nuget
+#   pin      the MSBuild property in Directory.Build.props holding the pinned version
+#   locator  kind-specific: pod name, groupId:artifactId[:packaging][@repo], owner/repo, or the
+#            NuGet package id
+#   confirm  download URL template with {version}, or "-" to derive it from the locator
+#
+# group	label	kind	pin	locator	confirm
+RTC platform packages	Net.Agora.Video.Android	nuget	NetAgoraVideoAndroidVersion	Net.Agora.Video.Android	-
+RTC platform packages	Net.Agora.Video.iOS	nuget	NetAgoraVideoIosVersion	Net.Agora.Video.iOS	-
+RTC platform packages	Net.Agora.Video.Mac	nuget	NetAgoraVideoMacVersion	Net.Agora.Video.Mac	-
+RTC platform packages	Net.Agora.Voice.Android	nuget	NetAgoraVoiceAndroidVersion	Net.Agora.Voice.Android	-
+RTC platform packages	Net.Agora.Voice.iOS	nuget	NetAgoraVoiceIosVersion	Net.Agora.Voice.iOS	-
+RTC platform packages	Net.Agora.Voice.Mac	nuget	NetAgoraVoiceMacVersion	Net.Agora.Voice.Mac	-
+Signaling platform packages	Net.Agora.Signaling.Android	nuget	NetAgoraSignalingAndroidVersion	Net.Agora.Signaling.Android	-
+Signaling platform packages	Net.Agora.Signaling.iOS	nuget	NetAgoraSignalingIosVersion	Net.Agora.Signaling.iOS	-
+Signaling platform packages	Net.Agora.Signaling.Mac	nuget	NetAgoraSignalingMacVersion	Net.Agora.Signaling.Mac	-
+Chat platform packages	Net.Agora.Chat.Android	nuget	NetAgoraChatAndroidVersion	Net.Agora.Chat.Android	-
+Chat platform packages	Net.Agora.Chat.iOS	nuget	NetAgoraChatIosVersion	Net.Agora.Chat.iOS	-
+Whiteboard platform packages	Net.Agora.Whiteboard.Android	nuget	NetAgoraWhiteboardAndroidVersion	Net.Agora.Whiteboard.Android	-
+Whiteboard platform packages	Net.Agora.Whiteboard.iOS	nuget	NetAgoraWhiteboardIosVersion	Net.Agora.Whiteboard.iOS	-
+Fastboard platform packages	Net.Agora.Fastboard.Android	nuget	NetAgoraFastboardAndroidVersion	Net.Agora.Fastboard.Android	-
+Fastboard platform packages	Net.Agora.Fastboard.iOS	nuget	NetAgoraFastboardIosVersion	Net.Agora.Fastboard.iOS	-
