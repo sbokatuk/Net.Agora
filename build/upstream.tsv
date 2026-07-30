@@ -19,19 +19,23 @@
 #            NuGet package id
 #   confirm  download URL template with {version}, or "-" to derive it from the locator
 #
-# group	label	kind	pin	locator	confirm
-RTC platform packages	Net.Agora.Video.Android	nuget	NetAgoraVideoAndroidVersion	Net.Agora.Video.Android	-
-RTC platform packages	Net.Agora.Video.iOS	nuget	NetAgoraVideoIosVersion	Net.Agora.Video.iOS	-
-RTC platform packages	Net.Agora.Video.Mac	nuget	NetAgoraVideoMacVersion	Net.Agora.Video.Mac	-
-RTC platform packages	Net.Agora.Voice.Android	nuget	NetAgoraVoiceAndroidVersion	Net.Agora.Voice.Android	-
-RTC platform packages	Net.Agora.Voice.iOS	nuget	NetAgoraVoiceIosVersion	Net.Agora.Voice.iOS	-
-RTC platform packages	Net.Agora.Voice.Mac	nuget	NetAgoraVoiceMacVersion	Net.Agora.Voice.Mac	-
-Signaling platform packages	Net.Agora.Signaling.Android	nuget	NetAgoraSignalingAndroidVersion	Net.Agora.Signaling.Android	-
-Signaling platform packages	Net.Agora.Signaling.iOS	nuget	NetAgoraSignalingIosVersion	Net.Agora.Signaling.iOS	-
-Signaling platform packages	Net.Agora.Signaling.Mac	nuget	NetAgoraSignalingMacVersion	Net.Agora.Signaling.Mac	-
-Chat platform packages	Net.Agora.Chat.Android	nuget	NetAgoraChatAndroidVersion	Net.Agora.Chat.Android	-
-Chat platform packages	Net.Agora.Chat.iOS	nuget	NetAgoraChatIosVersion	Net.Agora.Chat.iOS	-
-Whiteboard platform packages	Net.Agora.Whiteboard.Android	nuget	NetAgoraWhiteboardAndroidVersion	Net.Agora.Whiteboard.Android	-
-Whiteboard platform packages	Net.Agora.Whiteboard.iOS	nuget	NetAgoraWhiteboardIosVersion	Net.Agora.Whiteboard.iOS	-
-Fastboard platform packages	Net.Agora.Fastboard.Android	nuget	NetAgoraFastboardAndroidVersion	Net.Agora.Fastboard.Android	-
-Fastboard platform packages	Net.Agora.Fastboard.iOS	nuget	NetAgoraFastboardIosVersion	Net.Agora.Fastboard.iOS	-
+#   source   owner/repo publishing the component - optional, and only meaningful on nuget
+#            rows, where the drift finding links that repository's release notes for the
+#            version it reports
+#
+# group	label	kind	pin	locator	confirm	source
+RTC platform packages	Net.Agora.Video.Android	nuget	NetAgoraVideoAndroidVersion	Net.Agora.Video.Android	-	sbokatuk/Net.Agora.Android
+RTC platform packages	Net.Agora.Video.iOS	nuget	NetAgoraVideoIosVersion	Net.Agora.Video.iOS	-	sbokatuk/Net.Agora.iOS
+RTC platform packages	Net.Agora.Video.Mac	nuget	NetAgoraVideoMacVersion	Net.Agora.Video.Mac	-	sbokatuk/Net.Agora.Mac
+RTC platform packages	Net.Agora.Voice.Android	nuget	NetAgoraVoiceAndroidVersion	Net.Agora.Voice.Android	-	sbokatuk/Net.Agora.Android
+RTC platform packages	Net.Agora.Voice.iOS	nuget	NetAgoraVoiceIosVersion	Net.Agora.Voice.iOS	-	sbokatuk/Net.Agora.iOS
+RTC platform packages	Net.Agora.Voice.Mac	nuget	NetAgoraVoiceMacVersion	Net.Agora.Voice.Mac	-	sbokatuk/Net.Agora.Mac
+Signaling platform packages	Net.Agora.Signaling.Android	nuget	NetAgoraSignalingAndroidVersion	Net.Agora.Signaling.Android	-	sbokatuk/Net.Agora.Android
+Signaling platform packages	Net.Agora.Signaling.iOS	nuget	NetAgoraSignalingIosVersion	Net.Agora.Signaling.iOS	-	sbokatuk/Net.Agora.iOS
+Signaling platform packages	Net.Agora.Signaling.Mac	nuget	NetAgoraSignalingMacVersion	Net.Agora.Signaling.Mac	-	sbokatuk/Net.Agora.Mac
+Chat platform packages	Net.Agora.Chat.Android	nuget	NetAgoraChatAndroidVersion	Net.Agora.Chat.Android	-	sbokatuk/Net.Agora.Android
+Chat platform packages	Net.Agora.Chat.iOS	nuget	NetAgoraChatIosVersion	Net.Agora.Chat.iOS	-	sbokatuk/Net.Agora.iOS
+Whiteboard platform packages	Net.Agora.Whiteboard.Android	nuget	NetAgoraWhiteboardAndroidVersion	Net.Agora.Whiteboard.Android	-	sbokatuk/Net.Agora.Android
+Whiteboard platform packages	Net.Agora.Whiteboard.iOS	nuget	NetAgoraWhiteboardIosVersion	Net.Agora.Whiteboard.iOS	-	sbokatuk/Net.Agora.iOS
+Fastboard platform packages	Net.Agora.Fastboard.Android	nuget	NetAgoraFastboardAndroidVersion	Net.Agora.Fastboard.Android	-	sbokatuk/Net.Agora.Android
+Fastboard platform packages	Net.Agora.Fastboard.iOS	nuget	NetAgoraFastboardIosVersion	Net.Agora.Fastboard.iOS	-	sbokatuk/Net.Agora.iOS
