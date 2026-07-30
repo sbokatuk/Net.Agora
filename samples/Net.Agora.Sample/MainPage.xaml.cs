@@ -190,6 +190,12 @@ public partial class MainPage : ContentPage
         _client?.Dispose();
         _client = null;
         _previewing = false;
+
+        // A remote user who never sent UserOffline before we left (the common case: we leave
+        // first) would otherwise leave this pointing at a uid nobody will ever match again — the
+        // next session's first remote user then fails the "is this the first one" check in
+        // UserJoined and never gets a view.
+        _remoteUid = null;
         PreviewButton.Text = "Preview";
         Append("left");
         SetJoined(false);

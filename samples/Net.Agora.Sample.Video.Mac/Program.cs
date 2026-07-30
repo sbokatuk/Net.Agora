@@ -28,6 +28,7 @@ public sealed class AppDelegate : NSApplicationDelegate
     private NSWindow _window = null!;
     private NSTextField _appId = null!;
     private NSTextField _channel = null!;
+    private NSTextField _token = null!;
     private NSView _localView = null!;
     private NSView _remoteView = null!;
     private NSTextField _status = null!;
@@ -37,7 +38,7 @@ public sealed class AppDelegate : NSApplicationDelegate
     public override void DidFinishLaunching(NSNotification notification)
     {
         _window = new NSWindow(
-            new CGRect(0, 0, 900, 560),
+            new CGRect(0, 0, 900, 600),
             NSWindowStyle.Titled | NSWindowStyle.Closable | NSWindowStyle.Miniaturizable | NSWindowStyle.Resizable,
             NSBackingStore.Buffered,
             deferCreation: false)
@@ -47,9 +48,10 @@ public sealed class AppDelegate : NSApplicationDelegate
         _window.Center();
 
         var content = _window.ContentView!;
-        _appId = LabeledField(content, "App ID", 520, "your Agora App ID");
-        _channel = LabeledField(content, "Channel", 480, "channel name");
+        _appId = LabeledField(content, "App ID", 560, "your Agora App ID");
+        _channel = LabeledField(content, "Channel", 520, "channel name");
         _channel.StringValue = "demo";
+        _token = LabeledField(content, "Token", 480, "token (optional — App ID-only auth is testing-only)");
 
         var join = new NSButton { Title = "Join", BezelStyle = NSBezelStyle.Rounded, Frame = new CGRect(20, 440, 90, 30) };
         join.Activated += async (_, _) => await JoinAsync();
@@ -92,6 +94,7 @@ public sealed class AppDelegate : NSApplicationDelegate
         _client = new AgoraVideoClient(new AgoraVideoOptions
         {
             AppId = appId,
+            Token = string.IsNullOrWhiteSpace(_token.StringValue) ? null : _token.StringValue.Trim(),
             ChannelProfile = AgoraChannelProfile.LiveBroadcasting,
             ClientRole = AgoraClientRole.Broadcaster,
         });
