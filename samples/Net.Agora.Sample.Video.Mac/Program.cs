@@ -94,7 +94,7 @@ public sealed class AppDelegate : NSApplicationDelegate
         _client = new AgoraVideoClient(new AgoraVideoOptions
         {
             AppId = appId,
-            Token = string.IsNullOrEmpty(_token.StringValue) ? null : _token.StringValue.Trim(),
+            Token = string.IsNullOrWhiteSpace(_token.StringValue) ? null : _token.StringValue.Trim(),
             ChannelProfile = AgoraChannelProfile.LiveBroadcasting,
             ClientRole = AgoraClientRole.Broadcaster,
         });
