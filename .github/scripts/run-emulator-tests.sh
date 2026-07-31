@@ -14,6 +14,10 @@ set -euo pipefail
 # consumes. One run
 # exercises one product: their platform packages carry the same native artifacts, so a single
 # app holds one of them.
+#
+# Environment:
+#   AGORA_SHRINK=1          add R8 to the Release build/link check
+#   AGORA_WITH_SIGNALING=1  also reference the Signaling façade (Video/Voice only)
 
 VERSION="${1:?a package version is required}"
 PRODUCT="${3:-Video}"
@@ -86,7 +90,17 @@ if [ "${AGORA_SHRINK:-0}" = "1" ]; then
     SHRINK_ARGS=(-p:AndroidLinkTool=r8)
 fi
 
-echo "==> Release build/link check (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version}, shrink=${AGORA_SHRINK:-0})"
+# AGORA_WITH_SIGNALING=1 additionally references the Signaling façade, without changing which suite
+# compiles. Valid on the Video and Voice products only. Signaling and the RTC products each bring
+# an aosl and every copy lands at lib/<abi>/libaosl.so, so the app keeps one and both products run
+# against it — a mismatch there made RtcEngine.Create() return null on a device while the build said
+# nothing. Nothing here held both products at once before, which is why this side never saw it.
+COEXIST_ARGS=()
+if [ "${AGORA_WITH_SIGNALING:-0}" = "1" ]; then
+    COEXIST_ARGS=(-p:AgoraReferenceSignaling=true)
+fi
+
+echo "==> Release build/link check (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version}, shrink=${AGORA_SHRINK:-0}, signaling=${AGORA_WITH_SIGNALING:-0})"
 # A Release build as a build-and-link check only - not installed, not run. Release turns on the
 # managed linker/trimmer (PublishTrimmed) and AOT (RunAOTCompilation), and this proves the Agora
 # binding survives both and still produces an .apk, which a Debug build (neither on) never
@@ -107,7 +121,8 @@ echo "==> Release build/link check (version=${VERSION}, tfm=${TARGET_FRAMEWORK},
     -p:AgoraPackageVersion="${VERSION}" \
     -p:AgoraDeviceTargetFramework="${TARGET_FRAMEWORK}" \
     -p:RuntimeIdentifier="${DEVICE_RID}" \
-    ${SHRINK_ARGS[@]+"${SHRINK_ARGS[@]}"} )
+    ${SHRINK_ARGS[@]+"${SHRINK_ARGS[@]}"} \
+    ${COEXIST_ARGS[@]+"${COEXIST_ARGS[@]}"} )
 
 echo "==> building device tests for the e2e run (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version})"
 # Debug for the run, for the reason above: a Release build aborts on startup, so the checks can
@@ -118,6 +133,7 @@ echo "==> building device tests for the e2e run (version=${VERSION}, tfm=${TARGE
     -p:AgoraPackageVersion="${VERSION}" \
     -p:AgoraDeviceTargetFramework="${TARGET_FRAMEWORK}" \
     -p:RuntimeIdentifier="${DEVICE_RID}" \
+    ${COEXIST_ARGS[@]+"${COEXIST_ARGS[@]}"} \
     -t:Install )
 
 echo "==> granting camera/microphone permissions"
