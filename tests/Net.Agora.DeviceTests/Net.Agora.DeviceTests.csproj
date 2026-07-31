@@ -173,11 +173,15 @@
   -->
   <PropertyGroup>
     <AgoraReferenceSignaling Condition=" '$(AgoraReferenceSignaling)' == '' ">false</AgoraReferenceSignaling>
+    <!--
+      The pins, for a local run. CI passes this explicitly instead, because a pull request packs
+      every package with a prerelease suffix (-beta.<pr>.<run>) that the pins here do not carry.
+    -->
+    <AgoraSignalingPackageVersion Condition=" '$(AgoraSignalingPackageVersion)' == '' ">$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)</AgoraSignalingPackageVersion>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(AgoraReferenceSignaling)' == 'true' ">
-    <PackageReference Include="Net.Agora.Signaling"
-                      Version="$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)" />
+    <PackageReference Include="Net.Agora.Signaling" Version="$(AgoraSignalingPackageVersion)" />
   </ItemGroup>
 
   <!--

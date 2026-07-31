@@ -97,7 +97,19 @@ fi
 # nothing. Nothing here held both products at once before, which is why this side never saw it.
 COEXIST_ARGS=()
 if [ "${AGORA_WITH_SIGNALING:-0}" = "1" ]; then
-    COEXIST_ARGS=(-p:AgoraReferenceSignaling=true)
+    # Signaling's own version plus this run's prerelease suffix. The products sit on independent
+    # version lines, so VERSION (the chosen product's) says nothing about Signaling's — but a pull
+    # request packs every package as <version>-beta.<pr>.<run>, so the suffix has to carry across
+    # or the reference asks for a package that is not in ./artifacts.
+    case "${VERSION}" in
+        *-*) signaling_version="${AGORA_SIGNALING_PACKAGE_VERSION}-${VERSION#*-}" ;;
+        *)   signaling_version="${AGORA_SIGNALING_PACKAGE_VERSION}" ;;
+    esac
+
+    rm -rf "${HOME}/.nuget/packages/net.agora.signaling/${signaling_version}"
+
+    COEXIST_ARGS=(-p:AgoraReferenceSignaling=true
+                  -p:AgoraSignalingPackageVersion="${signaling_version}")
 fi
 
 echo "==> Release build/link check (version=${VERSION}, tfm=${TARGET_FRAMEWORK}, sdk=${sdk_version}, shrink=${AGORA_SHRINK:-0}, signaling=${AGORA_WITH_SIGNALING:-0})"
