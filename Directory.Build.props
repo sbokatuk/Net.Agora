@@ -19,8 +19,16 @@
     <NetAgoraVideoIosVersion>4.6.2.5</NetAgoraVideoIosVersion>
     <NetAgoraVoiceAndroidVersion>4.6.3.5</NetAgoraVoiceAndroidVersion>
     <NetAgoraVoiceIosVersion>4.6.2.5</NetAgoraVoiceIosVersion>
-    <NetAgoraSignalingAndroidVersion>2.2.6.2</NetAgoraSignalingAndroidVersion>
-    <NetAgoraSignalingIosVersion>2.2.6.2</NetAgoraSignalingIosVersion>
+    <!--
+      2.2.6.3 is not optional for anyone who uses Signaling alongside Video or Voice. Every earlier
+      Signaling package ships an `aosl` that the RTC engine cannot necessarily load against, and
+      because all of them land at one path in a consuming app — lib/<abi>/libaosl.so on Android,
+      Frameworks/aosl.framework on Apple — the app keeps a single copy and both products run
+      against it. On Android that surfaced as RtcEngine.Create() returning null on a device, with a
+      build that reported nothing. See each binding repository's signaling-v2.2.6.3 release note.
+    -->
+    <NetAgoraSignalingAndroidVersion>2.2.6.3</NetAgoraSignalingAndroidVersion>
+    <NetAgoraSignalingIosVersion>2.2.6.3</NetAgoraSignalingIosVersion>
     <!--
       The native macOS (AppKit) bindings, from sbokatuk/Net.Agora.Mac. Only Video, Voice and
       Signaling have a macOS leg — Agora ships no native macOS SDK for Chat/Whiteboard/Fastboard.
@@ -30,9 +38,13 @@
     -->
     <NetAgoraVideoMacVersion>4.6.2.2</NetAgoraVideoMacVersion>
     <NetAgoraVoiceMacVersion>4.6.2.2</NetAgoraVoiceMacVersion>
-    <NetAgoraSignalingMacVersion>2.2.8.2</NetAgoraSignalingMacVersion>
+    <NetAgoraSignalingMacVersion>2.2.8.3</NetAgoraSignalingMacVersion>
     <NetAgoraChatAndroidVersion>1.4.0.2</NetAgoraChatAndroidVersion>
-    <NetAgoraChatIosVersion>1.4.0.2</NetAgoraChatIosVersion>
+    <!--
+      Ahead of Android's, which is not a mistake: Net.Agora.Chat.iOS 1.4.0.3 moved its AgoraInfra_iOS
+      pin, which has no Android counterpart. The Chat pod itself is 1.4.0 on both.
+    -->
+    <NetAgoraChatIosVersion>1.4.0.3</NetAgoraChatIosVersion>
     <!--
       The one product whose two platform packages sit on different version lines. netless keeps the
       Android and iOS whiteboard SDKs in separate repositories with separate release cadences, so
@@ -58,13 +70,13 @@
       revision counter — it did not exist when the RTC products shipped revision 1.
     -->
     <AgoraSignalingIosVersion>2.2.6</AgoraSignalingIosVersion>
-    <AgoraSignalingBindingRevision>2</AgoraSignalingBindingRevision>
+    <AgoraSignalingBindingRevision>3</AgoraSignalingBindingRevision>
     <!--
       Chat is a third product on a third native line — 1.4.x — with its own revision counter, for
       the same reason Signaling has one.
     -->
     <AgoraChatIosVersion>1.4.0</AgoraChatIosVersion>
-    <AgoraChatBindingRevision>2</AgoraChatBindingRevision>
+    <AgoraChatBindingRevision>3</AgoraChatBindingRevision>
     <!--
       Whiteboard tracks its iOS line, like every other product here — which for this one means the
       newer of the two.

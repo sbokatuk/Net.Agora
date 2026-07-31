@@ -466,7 +466,7 @@ jobs:
           retention-days: 7
 
   e2e-android:
-    name: emulator checks (${{ matrix.product }}, ${{ matrix.target-framework }}${{ matrix.shrink == 1 && ', shrink' || '' }})
+    name: emulator checks (${{ matrix.product }}, ${{ matrix.target-framework }}${{ matrix.shrink == 1 && ', shrink' || '' }}${{ matrix.with-signaling == 1 && ', +signaling' || '' }})
     timeout-minutes: 60
     needs: pack
     # verify=false on a release — the tagged commit was device-tested on its pull request.
@@ -478,6 +478,7 @@ jobs:
         product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
         target-framework: ${{ fromJSON(inputs.e2e-android-target-frameworks) }}
         shrink: [0]
+        with-signaling: [0]
         include:
           # One extra leg with R8 on. Release alone does not shrink Java (AndroidLinkTool is empty
           # by default), so without this nothing here proves the keep rules the platform packages
@@ -487,6 +488,21 @@ jobs:
           - product: Whiteboard
             target-framework: net9.0-android35.0
             shrink: 1
+            with-signaling: 0
+          # And one leg holding Video *and* Signaling — the coverage that was missing when a real
+          # aosl conflict shipped. Both products bring an aosl and every copy lands at
+          # lib/<abi>/libaosl.so, so the app keeps one and both run against it; when the copies were
+          # not interchangeable, RtcEngine.Create() returned null on a device from a build that
+          # reported nothing. Every sample and every leg here held exactly one product, so this side
+          # could not have seen it. The binding repositories have the equivalent leg over the raw
+          # packages; this one proves the façades compose the same way.
+          #
+          # The suite is the unchanged Video one — only the package graph differs — and one TFM is
+          # enough: this is a native-library merge, which does not vary by band.
+          - product: Video
+            target-framework: net10.0-android36.0
+            shrink: 0
+            with-signaling: 1
     # Linux, unlike the pack job: the emulator needs KVM, which the macOS runners do not have, and
     # the Android head of the device app needs no Apple toolchain to build.
     runs-on: ubuntu-latest
@@ -573,13 +589,13 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front emulated
           disable-animations: true
-          script: AGORA_SHRINK=${{ matrix.shrink }} ./.github/scripts/run-emulator-tests.sh "$AGORA_E2E_VERSION" "${{ matrix.target-framework }}" "${{ matrix.product }}"
+          script: AGORA_SHRINK=${{ matrix.shrink }} AGORA_WITH_SIGNALING=${{ matrix.with-signaling }} ./.github/scripts/run-emulator-tests.sh "$AGORA_E2E_VERSION" "${{ matrix.target-framework }}" "${{ matrix.product }}"
 
       - name: Upload emulator logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: emulator-test-logs-${{ matrix.product }}-${{ matrix.target-framework }}${{ matrix.shrink == 1 && '-shrink' || '' }}
+          name: emulator-test-logs-${{ matrix.product }}-${{ matrix.target-framework }}${{ matrix.shrink == 1 && '-shrink' || '' }}${{ matrix.with-signaling == 1 && '-signaling' || '' }}
           path: emulator-tests.log
           if-no-files-found: ignore
           retention-days: 7

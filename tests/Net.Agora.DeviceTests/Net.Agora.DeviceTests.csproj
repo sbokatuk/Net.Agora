@@ -156,6 +156,45 @@
   </ItemGroup>
 
   <!--
+    -p:AgoraReferenceSignaling=true additionally references the Signaling façade, without changing
+    which suite compiles. Same knob shape as AgoraReferenceExtensions below, and here for a sharper
+    reason: this is the coverage gap that let a real bug reach a device.
+
+    Signaling and the RTC products each bring an `aosl` — Agora's own infrastructure library — and
+    every copy lands at one path in the app (lib/<abi>/libaosl.so on Android,
+    Frameworks/aosl.framework on Apple). The app keeps a single copy, so both products run against
+    whichever one the build kept, and until Signaling 2.2.6.3 those copies were not interchangeable:
+    RtcEngine.Create() returned null on a device while the build reported nothing worse than a
+    warning. No sample or device leg here ever held both products at once, which is exactly why it
+    was not caught on this side.
+
+    The suite is the unchanged Video (or Voice) one; only the package graph differs. The platform
+    package tests assert the aosl layout statically — this is what proves the merged app runs.
+  -->
+  <PropertyGroup>
+    <AgoraReferenceSignaling Condition=" '$(AgoraReferenceSignaling)' == '' ">false</AgoraReferenceSignaling>
+    <!--
+      The pins, for a local run. CI passes this explicitly instead, because a pull request packs
+      every package with a prerelease suffix (-beta.<pr>.<run>) that the pins here do not carry.
+    -->
+    <AgoraSignalingPackageVersion Condition=" '$(AgoraSignalingPackageVersion)' == '' ">$(AgoraSignalingIosVersion).$(AgoraSignalingBindingRevision)</AgoraSignalingPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(AgoraReferenceSignaling)' == 'true' ">
+    <PackageReference Include="Net.Agora.Signaling" Version="$(AgoraSignalingPackageVersion)" />
+  </ItemGroup>
+
+  <!--
+    Signaling coexists with the RTC products, and referencing it on the Signaling flavor is a
+    duplicate PackageReference. Said here rather than left to NU1504 or to a stray restore error.
+  -->
+  <Target Name="_AgoraValidateCoexistence" BeforeTargets="BeforeBuild"
+          Condition=" '$(AgoraReferenceSignaling)' == 'true' ">
+    <Error Condition=" '$(AgoraDeviceProduct)' != 'Video' And '$(AgoraDeviceProduct)' != 'Voice' "
+           Text="AgoraReferenceSignaling=true is only meaningful for the Video and Voice products (the ones Signaling shares an aosl with), not '$(AgoraDeviceProduct)'." />
+  </Target>
+
+  <!--
     Fastboard on Android only. Fastboard's transitive graph asks for two mutually-exclusive
     Xamarin.AndroidX.Lifecycle.Common ranges and NuGet cannot unify them, so restore fails outright
     with NU1107 before anything builds:

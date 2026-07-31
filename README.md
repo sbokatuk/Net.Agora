@@ -122,6 +122,14 @@ Pick one RTC product per app: Video already carries the full audio surface, and 
 products' native artifacts collide (same Java classes on Android, same `AgoraRtcKit` framework on
 iOS). Signaling, Chat and Whiteboard coexist with either, and with each other.
 
+> **Signaling alongside Video or Voice needs Signaling 2.2.6.3 or newer** (2.2.8.3 on macOS), which
+> is what this repository pins. Every earlier Signaling package brings an `aosl` — Agora's own
+> infrastructure library — that the RTC engine cannot necessarily load against, and since all of
+> them land at one path in the app (`lib/<abi>/libaosl.so`, `Frameworks/aosl.framework`) the app
+> keeps a single copy and both products run against it. On Android that surfaced as
+> `RtcEngine.Create()` returning `null` on a device, from a build that reported nothing. If you
+> reference the platform packages directly rather than through these façades, check that pin.
+
 ## Status
 
 This repository covers Agora's Video, Voice, Signaling, Chat, Interactive Whiteboard and Fastboard SDKs, wired end to end: the raw Android/iOS
