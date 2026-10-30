@@ -12,6 +12,8 @@ namespace Net.Agora.Sample.Whiteboard;
 /// The three identifiers come from two different places. The App Identifier is in the Agora
 /// Console under Interactive Whiteboard; the room UUID and its token come from your own server's
 /// call to the whiteboard REST API, because minting them needs a secret an app must not carry.
+/// A room can only be joined from the region it was created in, so the region field has to match
+/// it; leave it empty for the SDK's default.
 /// </summary>
 public partial class MainPage : ContentPage
 {
@@ -27,6 +29,7 @@ public partial class MainPage : ContentPage
         var appIdentifier = AppIdentifierEntry.Text?.Trim();
         var roomUuid = RoomUuidEntry.Text?.Trim();
         var roomToken = RoomTokenEntry.Text?.Trim();
+        var region = RegionEntry.Text?.Trim();
 
         if (string.IsNullOrEmpty(appIdentifier) || string.IsNullOrEmpty(roomUuid) || string.IsNullOrEmpty(roomToken))
         {
@@ -47,6 +50,7 @@ public partial class MainPage : ContentPage
                 RoomUuid = roomUuid,
                 RoomToken = roomToken,
                 Uid = "maui-user",
+                Region = string.IsNullOrEmpty(region) ? null : region,
             });
 
             client.PhaseChanged += (_, ev) => Status($"room: {ev.Phase}");
