@@ -24,8 +24,10 @@ public sealed class AgoraWhiteboardOptions
 
     /// <summary>
     /// The data-centre region, as one of netless's own keys — "cn-hz", "us-sv", "sg", "in-mum",
-    /// "gb-lon". Null takes the SDK's default. A string rather than an enum because both SDKs
-    /// declare it as one, and the set grows without an SDK release.
+    /// "gb-lon". Null takes the SDK's default. A string rather than an enum because the set grows
+    /// without an SDK release. A room can only be joined from the region it was created in. On
+    /// Android, a key the SDK doesn't know makes the client's constructor throw
+    /// <see cref="AgoraWhiteboardException"/>.
     /// </summary>
     public string? Region { get; set; }
 
