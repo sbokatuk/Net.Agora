@@ -75,4 +75,37 @@
     <PackageReference Include="Net.Agora.Fastboard.Maui" Version="[$(AgoraFastboardPackageVersion)]" />
   </ItemGroup>
 
+  <!--
+    Android on .NET 8 only. Without these the build fails in D8, on whichever duplicate it reaches
+    first:
+
+        Type androidx.collection.ArraySetKt is defined multiple times
+
+    AndroidX moved its Kotlin extensions out of the -ktx artifacts and into the base ones, which
+    left the -ktx packages empty. This graph holds both halves of that move:
+
+        Whiteboard.Android -> WebKit 1.14.0.1 -> Core 1.16.0.3
+            -> Collection 1.5.0.3, Lifecycle.Runtime 2.9.2.1
+        Fastboard.Android -> AppCompat 1.7.0.7
+            -> Activity 1.10.1.2, Lifecycle.ViewModel 2.8.7.4
+            -> Fragment 1.8.6.2 -> Lifecycle.LiveData.Core 2.8.7.4      (extensions moved in)
+        Maui.Core 8.0.100 -> Navigation.Common/Fragment/Runtime 2.6.0.1
+            -> Activity.Ktx 1.7.2.1, Collection.Ktx 1.2.0.9,
+               the 2.6.1.3 Lifecycle -ktx packages                      (extensions still here)
+
+    NuGet raises the base packages and nothing raises their -ktx partners, so the same classes
+    arrive twice. Pin each -ktx to the version of its base package, where it is empty. The Lifecycle
+    pins differ because this graph already mixes the 2.8 and 2.9 lines. Lifecycle.ViewModel.Ktx
+    collides too, but Activity.Ktx 1.10.1.2 raises it to an empty 2.8.7.4 without a pin. A direct
+    reference outranks every transitive vote, as with the Fastboard pin in
+    tests/Net.Agora.DeviceTests. MAUI 9 asks for the empty -ktx packages on its own, so net9 needs
+    no pin.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And $(TargetFramework.StartsWith('net8'))">
+    <PackageReference Include="Xamarin.AndroidX.Activity.Ktx" Version="1.10.1.2" />
+    <PackageReference Include="Xamarin.AndroidX.Collection.Ktx" Version="1.5.0.3" />
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" Version="2.8.7.4" />
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.Runtime.Ktx" Version="2.9.2.1" />
+  </ItemGroup>
+
 </Project>
