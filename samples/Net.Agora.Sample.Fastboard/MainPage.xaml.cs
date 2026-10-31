@@ -10,7 +10,8 @@ namespace Net.Agora.Sample.Fastboard;
 ///
 /// The identifiers are the same three, from the same two places: the App Identifier from the Agora
 /// Console under Interactive Whiteboard, and the room UUID and token from your own server's call
-/// to the whiteboard REST API.
+/// to the whiteboard REST API. A room can only be joined from the region it was created in, so
+/// the region field has to match it; leave it empty for China.
 /// </summary>
 public partial class MainPage : ContentPage
 {
@@ -27,6 +28,7 @@ public partial class MainPage : ContentPage
         var appIdentifier = AppIdentifierEntry.Text?.Trim();
         var roomUuid = RoomUuidEntry.Text?.Trim();
         var roomToken = RoomTokenEntry.Text?.Trim();
+        var region = RegionEntry.Text?.Trim();
 
         if (string.IsNullOrEmpty(appIdentifier) || string.IsNullOrEmpty(roomUuid) || string.IsNullOrEmpty(roomToken))
         {
@@ -47,6 +49,7 @@ public partial class MainPage : ContentPage
                 RoomUuid = roomUuid,
                 RoomToken = roomToken,
                 Uid = "maui-user",
+                Region = string.IsNullOrEmpty(region) ? null : region,
             });
 
             client.PhaseChanged += (_, ev) => Status($"room: {ev.Phase}");

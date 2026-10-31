@@ -44,14 +44,34 @@ public sealed partial class AgoraWhiteboardClient
 
         if (!string.IsNullOrWhiteSpace(options.Region))
         {
-            // The SDK models the region as a Java enum keyed by netless's own string, so the
-            // string has to be looked up rather than assigned.
-            configuration.Region = Region.ValueOf(options.Region);
+            configuration.Region = ToRegion(options.Region);
         }
 
         // The constructor is what binds the SDK to the view's JavaScript bridge; there is no
         // separate setup call, unlike iOS where the same wiring is also constructor-time.
         _sdk = new WhiteSdk(boardView, context, configuration);
+    }
+
+    // The SDK models the region as a Java enum, and netless's keys are only what Gson writes for its
+    // constants: "us-sv" is the constant named us, so valueOf() rejects it. Anything else is looked
+    // up by name, which covers the keys that are spelled like their constant ("sg", "eu").
+    private static Region ToRegion(string region)
+    {
+        try
+        {
+            return region switch
+            {
+                "cn-hz" => Region.Cn!,
+                "us-sv" => Region.Us!,
+                "in-mum" => Region.InMum!,
+                "gb-lon" => Region.GbLon!,
+                _ => Region.ValueOf(region)!,
+            };
+        }
+        catch (Java.Lang.IllegalArgumentException exception)
+        {
+            throw new AgoraWhiteboardException($"'{region}' is not a whiteboard region.", 0, exception);
+        }
     }
 
     private void JoinCore(Action<AgoraWhiteboardException?> complete)
@@ -63,7 +83,7 @@ public sealed partial class AgoraWhiteboardClient
 
         if (!string.IsNullOrWhiteSpace(_options.Region))
         {
-            parameters.Region = Region.ValueOf(_options.Region);
+            parameters.Region = ToRegion(_options.Region);
         }
 
         _sdk.JoinRoom(parameters, _listener, new Promise<NativeRoom>(

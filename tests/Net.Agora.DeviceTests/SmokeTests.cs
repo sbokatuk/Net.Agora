@@ -121,6 +121,7 @@ public static class SmokeTests
         new("disposes cleanly", DisposesCleanly),
 #elif AGORA_WHITEBOARD
         new("a missing identifier is rejected before any native call", MissingAppIdIsRejected),
+        new("every documented region key reaches the SDK", AcceptsEveryRegionKey),
         new("constructs the SDK against a board view", ConstructsTheClient),
         new("drawing before a join is rejected by the client, not the board", DrawBeforeJoinIsRejected),
         new("cancelling the token surfaces as OperationCanceledException", CancellationIsDistinctFromTimeout),
@@ -334,6 +335,25 @@ public static class SmokeTests
         Throws<ArgumentException>(
             () => CreateClient(new AgoraClientOptions { AppIdentifier = AppId, RoomUuid = ChannelId, RoomToken = AppId }),
             "a missing user id");
+    }
+
+    private static void AcceptsEveryRegionKey()
+    {
+        // On Android these aren't the Java enum's constant names ("us-sv" is the constant us), so
+        // a plain valueOf() rejects four of the five.
+        foreach (var region in new[] { "cn-hz", "us-sv", "sg", "in-mum", "gb-lon" })
+        {
+            var options = Options();
+            options.Region = region;
+            CreateClient(options).Dispose();
+        }
+
+#if ANDROID
+        // iOS hands the key to the SDK as a string, so only Android can tell at construction.
+        var unknown = Options();
+        unknown.Region = "nowhere";
+        Throws<AgoraClientException>(() => CreateClient(unknown), "an unknown region");
+#endif
     }
 
     private static void ConstructsTheClient()
