@@ -140,8 +140,8 @@ echo "==> installing"
 xcrun simctl install "${udid}" "${APP_PATH}"
 
 echo "==> running"
-# --console-pty streams the app's stdout straight back, so the verdict needs no log scraping. The
-# app terminates itself once it has printed AGORA_E2E_DONE.
+# --console-pty streams the app's stdout straight back, so the verdict rarely needs log scraping.
+# The app terminates itself once it has printed AGORA_E2E_DONE.
 set +e
 xcrun simctl launch --console-pty "${udid}" "${BUNDLE_ID}" 2>&1 | tee "${LOG_FILE}"
 set -e
@@ -149,11 +149,34 @@ set -e
 if ! grep -q "AGORA_E2E_DONE PASS" "${LOG_FILE}"; then
     # No verdict usually means the app died before reporting, so keep the crash trace. A missing or
     # mis-stripped xcframework shows up here as a dyld failure naming the framework.
-    echo "==> no passing verdict; capturing crash output"
+    echo "==> no passing verdict on the console stream; capturing the device log"
+    device_log="${SDK_DIR}/device.log"
     xcrun simctl spawn "${udid}" log show --last 2m --predicate "process == 'Net.Agora.DeviceTests'" \
-        2>/dev/null | tail -100 | tee -a "${LOG_FILE}" || true
-    echo "::error::Agora simulator checks failed or timed out"
-    exit 1
+        2>/dev/null > "${device_log}" || true
+
+    # The stream can also lose its tail while the app runs on to its verdict, so a stream with no
+    # verdict at all is settled by the device log. That log holds earlier runs too, so only a line
+    # from this launch counts, matched on the pid in column 6. simctl prints the pid as it exits, so
+    # a killed simctl leaves none and the run fails; its exit status can't tell, being 0 after a
+    # crash or a SIGTERM. Read all of this before the dump below lands in the same file, and from
+    # the whole log, because the verdict can sit more than 100 lines from its end.
+    log_verdict=""
+    if ! grep -q "AGORA_E2E_DONE" "${LOG_FILE}"; then
+        launched_pid="$(LC_ALL=C sed -n "s/.*${BUNDLE_ID}: \([0-9][0-9]*\)$/\1/p" "${LOG_FILE}" | tail -1)"
+        if [ -n "${launched_pid}" ]; then
+            log_verdict="$(LC_ALL=C awk -v pid="${launched_pid}" '$6 == pid && /AGORA_E2E_DONE/' "${device_log}")"
+        fi
+    fi
+
+    tail -100 "${device_log}" | tee -a "${LOG_FILE}" || true
+
+    if [[ "${log_verdict}" == *"AGORA_E2E_DONE PASS"* && "${log_verdict}" != *"AGORA_E2E_DONE FAIL"* ]]; then
+        echo "${log_verdict}" | tee -a "${LOG_FILE}"
+        echo "::warning::simulator checks passed, but the console stream lost the verdict, so it was read from the device log"
+    else
+        echo "::error::Agora simulator checks failed or timed out"
+        exit 1
+    fi
 fi
 
 echo "==> simulator checks passed"
