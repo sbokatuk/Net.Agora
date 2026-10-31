@@ -100,10 +100,15 @@
     reference outranks every transitive vote, as with the Fastboard pin in
     tests/Net.Agora.DeviceTests. MAUI 9 asks for the empty -ktx packages on its own, so net9 needs
     no pin.
+
+    Lifecycle.Common is not a -ktx pin. The .NET 8 SDK's resolver stops on that 2.8/2.9 mix with
+    NU1107 where the .NET 9 SDK's only warns, and 2.9.2.1 is what the latter picks, so both SDKs
+    resolve the same graph.
   -->
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And $(TargetFramework.StartsWith('net8'))">
     <PackageReference Include="Xamarin.AndroidX.Activity.Ktx" Version="1.10.1.2" />
     <PackageReference Include="Xamarin.AndroidX.Collection.Ktx" Version="1.5.0.3" />
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.Common" Version="2.9.2.1" />
     <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" Version="2.8.7.4" />
     <PackageReference Include="Xamarin.AndroidX.Lifecycle.Runtime.Ktx" Version="2.9.2.1" />
   </ItemGroup>
