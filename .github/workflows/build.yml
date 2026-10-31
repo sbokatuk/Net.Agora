@@ -178,7 +178,7 @@ jobs:
     # the tagged track's products - the other samples could not restore at that tag anyway. The
     # merged commit already ran this on its pull request.
     if: ${{ inputs.verify }}
-    # Android needs no Apple toolchain, so its leg runs on Linux (faster and cheaper); iOS must have
+    # Android needs no Apple toolchain, so its legs run on Linux (faster and cheaper); iOS must have
     # Xcode. Chosen per matrix leg — see the include block below.
     runs-on: ${{ matrix.os }}
     strategy:
@@ -195,7 +195,11 @@ jobs:
         # ~25 min each, so back to back they dominated the whole pipeline. Split out, they run
         # concurrently, and pack's dependents (validate, e2e) no longer wait on them.
         product: [Video, Voice, Signaling, Chat, Whiteboard, Fastboard]
-        platform: [android, ios, macos]
+        # android-net8 is Android's lowest shipped band, which can fail alone: the net8 heads resolve
+        # a different dependency graph, and two of them broke in D8 with every net9 leg green. It is
+        # a platform value of its own because an include entry naming a product and platform:
+        # android would merge into that product's net9 leg and overwrite its tfm.
+        platform: [android, android-net8, ios, macos]
         exclude:
           # No native macOS SDK for these products, so no macos façade leg and no .Mac sample —
           # see src/Net.Agora.<P>/…: Chat/Whiteboard/Fastboard are Android+iOS only.
@@ -205,10 +209,19 @@ jobs:
         include:
           # os/tfm/build-args attach to every combination whose platform matches (GitHub merges an
           # include entry into the matrix legs that already share its keys). The target frameworks
-          # are the bands the pack job's original loop exercised.
+          # are the bands the pack job's original loop exercised, plus android-net8.
           - platform: android
             os: ubuntu-latest
             tfm: net9.0-android35.0
+            android-api: 35
+          - platform: android-net8
+            os: ubuntu-latest
+            tfm: net8.0-android34.0
+            android-api: 34
+            dotnet-version: 8.0.x
+            # `dotnet build -f` still restores every target framework in the list, and the .NET 8
+            # SDK cannot restore the net9 head, so this leg's list holds the net8 head alone.
+            build-args: -p:AgoraAndroidTargetFrameworks=net8.0-android34.0
           - platform: ios
             os: macos-15
             tfm: net9.0-ios18.0
@@ -237,9 +250,18 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          # The samples build at net9 on both platforms, so the .NET 9 band is enough - no net10
-          # scratch global.json as the pack/e2e jobs need.
-          dotnet-version: 9.0.x
+          # Apart from android-net8, the samples build at net9 on every platform, so the .NET 9 band
+          # is enough - no net10 scratch global.json as the pack/e2e jobs need.
+          dotnet-version: ${{ matrix.dotnet-version || '9.0.x' }}
+
+      - name: Select the .NET 8 SDK
+        # global.json selects the .NET 9 SDK, which compiles a net8 Android app and then fails at
+        # packaging with NETSDK1112 - see the comment in run-emulator-tests.sh. The workload and
+        # build steps run from the repository root for every leg, so this leg rewrites the file on
+        # the runner rather than carrying a scratch directory through them.
+        if: ${{ matrix.platform == 'android-net8' }}
+        run: |
+          printf '{ "sdk": { "version": "8.0.100", "rollForward": "latestFeature" } }\n' > global.json
 
       - name: Install workloads
         # The samples are MAUI apps, so the maui-<platform> workload is required on top of the raw
@@ -263,10 +285,10 @@ jobs:
           esac
 
       - name: Set up the Android SDK
-        if: ${{ matrix.platform == 'android' }}
+        if: ${{ startsWith(matrix.platform, 'android') }}
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platforms;android-35'
+          packages: 'platforms;android-${{ matrix.android-api }}'
 
       - name: Download packages
         uses: actions/download-artifact@v4
