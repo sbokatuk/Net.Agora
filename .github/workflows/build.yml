@@ -198,18 +198,22 @@ jobs:
         # android-net8 is Android's lowest shipped band, which can fail alone: the net8 heads resolve
         # a different dependency graph, and two of them broke in D8 with every net9 leg green. It is
         # a platform value of its own because an include entry naming a product and platform:
-        # android would merge into that product's net9 leg and overwrite its tfm.
-        platform: [android, android-net8, ios, macos]
+        # android would merge into that product's net9 leg and overwrite its tfm. ios-net8 and
+        # macos-net8 are the same for Apple.
+        platform: [android, android-net8, ios, ios-net8, macos, macos-net8]
         exclude:
           # No native macOS SDK for these products, so no macos façade leg and no .Mac sample —
           # see src/Net.Agora.<P>/…: Chat/Whiteboard/Fastboard are Android+iOS only.
           - { product: Chat, platform: macos }
           - { product: Whiteboard, platform: macos }
           - { product: Fastboard, platform: macos }
+          - { product: Chat, platform: macos-net8 }
+          - { product: Whiteboard, platform: macos-net8 }
+          - { product: Fastboard, platform: macos-net8 }
         include:
           # os/tfm/build-args attach to every combination whose platform matches (GitHub merges an
           # include entry into the matrix legs that already share its keys). The target frameworks
-          # are the bands the pack job's original loop exercised, plus android-net8.
+          # are the bands the pack job's original loop exercised, plus the -net8 legs.
           - platform: android
             os: ubuntu-latest
             tfm: net9.0-android35.0
@@ -233,6 +237,15 @@ jobs:
             # device slice before this. Code signing off: there is no certificate on a CI runner and
             # none is needed to prove the link.
             build-args: -p:RuntimeIdentifier=ios-arm64 -p:EnableCodeSigning=false
+          - platform: ios-net8
+            os: macos-15
+            tfm: net8.0-ios18.0
+            # The ios leg's device link, on the net8 runtime and MAUI 8. The simulator checks build
+            # this head too, but with the interpreter on, so nothing else AOT-compiles it or links
+            # its device slices. Unlike android-net8 it stays on the .NET 9 SDK, as pack and those
+            # checks do: that band's manifests carry the net8 iOS SDK, MAUI SDK and AOT compiler, so
+            # the leg needs no global.json or target framework list of its own.
+            build-args: -p:RuntimeIdentifier=ios-arm64 -p:EnableCodeSigning=false
           - platform: macos
             os: macos-15
             # The native macOS (AppKit) leg — Video/Voice/Signaling only. These build the
@@ -240,18 +253,25 @@ jobs:
             # over its net-macos leg (no MAUI: MAUI's only desktop-Mac target is Mac Catalyst, which
             # Agora ships no slice for). Pinned platform version, no RuntimeIdentifier.
             tfm: net9.0-macos15.0
+          - platform: macos-net8
+            os: macos-15
+            tfm: net8.0-macos15.0
+            # The AppKit samples set only TargetFramework, to net9.0-macos15.0, and restore ignores
+            # both -f and -p:TargetFramework, so the build stops with NETSDK1005 for want of a net8
+            # target. The plural property does reach restore.
+            build-args: -p:TargetFrameworks=net8.0-macos15.0
     steps:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
-        if: ${{ matrix.platform == 'ios' || matrix.platform == 'macos' }}
+        if: ${{ startsWith(matrix.platform, 'ios') || startsWith(matrix.platform, 'macos') }}
         run: ./.github/scripts/select-xcode.sh
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          # Apart from android-net8, the samples build at net9 on every platform, so the .NET 9 band
-          # is enough - no net10 scratch global.json as the pack/e2e jobs need.
+          # Only android-net8 needs another SDK. The .NET 9 band builds net9 on every platform and
+          # net8 on Apple - no net10 scratch global.json as the pack/e2e jobs need.
           dotnet-version: ${{ matrix.dotnet-version || '9.0.x' }}
 
       - name: Select the .NET 8 SDK
@@ -276,12 +296,12 @@ jobs:
         # the iOS target frameworks from TargetFrameworks when restoring on Linux.
         run: |
           case "${{ matrix.platform }}" in
-            ios)   dotnet workload install ios android maui-ios maui-android ;;
+            ios*)   dotnet workload install ios android maui-ios maui-android ;;
             # The macOS AppKit sample is macos-only (no MAUI head), so only the macos workload is
             # needed — the cross-platform façade it references resolves to its .Mac binding for the
             # net-macos target framework.
-            macos) dotnet workload install macos ;;
-            *)     dotnet workload install android maui-android ;;
+            macos*) dotnet workload install macos ;;
+            *)      dotnet workload install android maui-android ;;
           esac
 
       - name: Set up the Android SDK
@@ -309,12 +329,12 @@ jobs:
             Whiteboard) project=Net.Agora.Sample.Whiteboard; base="${AGORA_WHITEBOARD_PACKAGE_VERSION}"; prop=AgoraWhiteboardPackageVersion ;;
             Fastboard)  project=Net.Agora.Sample.Fastboard;  base="${AGORA_FASTBOARD_PACKAGE_VERSION}";  prop=AgoraFastboardPackageVersion ;;
           esac
-          # The macOS leg builds the AppKit sample (Net.Agora.Sample.<Product>.Mac), which consumes
+          # The macOS legs build the AppKit sample (Net.Agora.Sample.<Product>.Mac), which consumes
           # the cross-platform façade rather than its .Maui companion. Only Video/Voice/Signaling
-          # reach this leg (the matrix excludes the rest), so the name always resolves.
-          if [ "${{ matrix.platform }}" = "macos" ]; then
-            project="Net.Agora.Sample.${{ matrix.product }}.Mac"
-          fi
+          # reach these legs (the matrix excludes the rest), so the name always resolves.
+          case "${{ matrix.platform }}" in
+            macos*) project="Net.Agora.Sample.${{ matrix.product }}.Mac" ;;
+          esac
           version="${base}${{ inputs.suffix != '' && format('-{0}', inputs.suffix) || '' }}"
           dotnet build "samples/${project}" \
             -c Release -f "${{ matrix.tfm }}" ${{ matrix.build-args }} \
