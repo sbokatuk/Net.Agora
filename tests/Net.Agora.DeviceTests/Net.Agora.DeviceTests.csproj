@@ -210,8 +210,12 @@
     Whiteboard façade on its own does not pull the AppCompat side of the diamond, so its own leg
     restores clean and must not be perturbed. net10's newer AndroidX graph reconciles without help,
     but the pin is harmless there — 2.9.2.1 satisfies its constraints too.
+
+    Not on net8, whose graph has no such diamond since Net.Agora.Fastboard.Android 1.8.2.1 and
+    Net.Agora.Whiteboard.Android 2.16.134.1 lowered WebKit, AppCompat and RecyclerView there. The pin
+    would only raise that graph above what a consumer gets.
   -->
-  <ItemGroup Condition=" '$(AgoraDeviceProduct)' == 'Fastboard' And $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' ">
+  <ItemGroup Condition=" '$(AgoraDeviceProduct)' == 'Fastboard' And $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And !$(TargetFramework.StartsWith('net8')) ">
     <PackageReference Include="Xamarin.AndroidX.Lifecycle.Common" Version="2.9.2.1" />
   </ItemGroup>
 
