@@ -33,11 +33,14 @@
       The native macOS (AppKit) bindings, from sbokatuk/Net.Agora.Mac. Only Video, Voice and
       Signaling have a macOS leg — Agora ships no native macOS SDK for Chat/Whiteboard/Fastboard.
       These are a distinct platform from the iOS ones (net*-macos / AppKit, not Mac Catalyst, which
-      Agora ships no slice for), on their own version lines: the macOS RTC line matches iOS at 4.6.2
-      today, the RTM line is 2.2.8.
+      Agora ships no slice for), on version lines of their own that need not match the iOS ones.
     -->
     <NetAgoraVideoMacVersion>4.6.2.2</NetAgoraVideoMacVersion>
     <NetAgoraVoiceMacVersion>4.6.2.2</NetAgoraVoiceMacVersion>
+    <!--
+      Net.Agora.Signaling.Mac takes its aosl out of the macOS RTC archive, so each Signaling.Mac
+      release pairs with one Video.Mac/Voice.Mac line. Move the pins as the pair its release note names.
+    -->
     <NetAgoraSignalingMacVersion>2.2.8.3</NetAgoraSignalingMacVersion>
     <NetAgoraChatAndroidVersion>1.4.0.2</NetAgoraChatAndroidVersion>
     <!--
@@ -52,6 +55,11 @@
     -->
     <NetAgoraWhiteboardAndroidVersion>2.16.123.2</NetAgoraWhiteboardAndroidVersion>
     <NetAgoraWhiteboardIosVersion>2.16.137.2</NetAgoraWhiteboardIosVersion>
+    <!--
+      Fastboard is a release track of its own. On Android it depends on Net.Agora.Whiteboard.Android
+      at a minimum version; on iOS it embeds its own copy of the whiteboard. Either way its pins need
+      not follow the whiteboard ones.
+    -->
     <NetAgoraFastboardAndroidVersion>1.8.1.2</NetAgoraFastboardAndroidVersion>
     <NetAgoraFastboardIosVersion>1.4.5.2</NetAgoraFastboardIosVersion>
 
@@ -83,6 +91,9 @@
     -->
     <AgoraWhiteboardIosVersion>2.16.137</AgoraWhiteboardIosVersion>
     <AgoraWhiteboardBindingRevision>2</AgoraWhiteboardBindingRevision>
+    <!--
+      Fastboard, likewise: its own native line and its own revision counter.
+    -->
     <AgoraFastboardIosVersion>1.4.5</AgoraFastboardIosVersion>
     <AgoraFastboardBindingRevision>2</AgoraFastboardBindingRevision>
     <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
