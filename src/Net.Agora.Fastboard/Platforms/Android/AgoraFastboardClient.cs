@@ -40,6 +40,13 @@ public sealed partial class AgoraFastboardClient
 
     private void JoinOnMainThread(Action<AgoraFastboardException?> complete)
     {
+        // A join queued from another thread can run after Dispose, which then found no room to
+        // close. Creating one now would leave it connected with nothing left to disconnect it.
+        if (Volatile.Read(ref _disposed))
+        {
+            throw new AgoraFastboardException("the board was disposed before the join could start.");
+        }
+
         var roomOptions = new FastRoomOptions(
             _options.AppIdentifier!,
             _options.RoomUuid!,
@@ -60,16 +67,14 @@ public sealed partial class AgoraFastboardClient
         _room.Join();
     }
 
-    private void DisconnectCore()
+    // _room is read and cleared on the main thread, like the join that sets it, so a disconnect
+    // queued behind a join sees the room that join created.
+    private void DisconnectCore() => OnMainThread(() =>
     {
         var room = _room;
         _room = null;
-
-        if (room is not null)
-        {
-            OnMainThread(room.Disconnect);
-        }
-    }
+        room?.Disconnect();
+    });
 
     private void SetToolCore(AgoraFastboardTool tool, uint? color)
     {
