@@ -130,8 +130,8 @@ iOS). Signaling, Chat and Whiteboard coexist with either, and with each other.
 > reported nothing. Signaling 2.2.6.4 carries the `aosl` that RTC 4.7.0 needs on iOS and macOS,
 > and still works with 4.6.2. If you reference the platform packages directly rather than through
 > these façades, pair them as their release notes say: `Net.Agora.Signaling.iOS` 2.2.6.4 or newer
-> with `Net.Agora.Video.iOS` or `Net.Agora.Voice.iOS` 4.7.0, `Net.Agora.Signaling.Mac` 2.3.0.2 with
-> `Net.Agora.Video.Mac` or `Net.Agora.Voice.Mac` 4.7.0, and `Net.Agora.Signaling.Android` 2.2.6.3 or
+> with `Net.Agora.Video.iOS` or `Net.Agora.Voice.iOS` 4.7.0.1, `Net.Agora.Signaling.Mac` 2.3.0.2 with
+> `Net.Agora.Video.Mac` or `Net.Agora.Voice.Mac` 4.7.0.1, and `Net.Agora.Signaling.Android` 2.2.6.3 or
 > newer on Android.
 
 ## Status
