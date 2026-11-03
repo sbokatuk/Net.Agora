@@ -1,4 +1,6 @@
+using System.Runtime.InteropServices;
 using Foundation;
+using ObjCRuntime;
 using UIKit;
 
 namespace Net.Agora.DeviceTests;
@@ -16,6 +18,20 @@ public static class Program
 [Register(nameof(AppDelegate))]
 public sealed class AppDelegate : UIApplicationDelegate
 {
+    public AppDelegate()
+    {
+    }
+
+    // UIApplication.Main creates this delegate on the Objective-C side, so the runtime has to wrap
+    // an existing native object, which takes this constructor. The .NET 9 iOS SDK uses the dynamic
+    // registrar for this interpreter build, and without it the app dies before the first check
+    // with "does not have a constructor that takes one NativeHandle argument". The net8 and net10
+    // builds register statically and never call it.
+    private AppDelegate(NativeHandle handle)
+        : base(handle)
+    {
+    }
+
     public override UIWindow? Window { get; set; }
 
     public override bool FinishedLaunching(UIApplication application, NSDictionary? launchOptions)
@@ -37,8 +53,19 @@ public sealed class AppDelegate : UIApplicationDelegate
         // long enough to trip the watchdog.
         _ = TestRunner.RunAndReportAsync(
             Console.WriteLine,
-            exitCode => Environment.Exit(exitCode));
+            exitCode =>
+            {
+                Console.Out.Flush();
+                Terminate(exitCode);
+            });
 
         return true;
     }
+
+    // _exit rather than Environment.Exit, which calls exit(3): from RTC 4.7.0 the Voice package's
+    // AgoraffmpegExtension registers an exit handler that spins in aosl_module_unregister once an
+    // engine has existed, so exit(3) never returns and simctl launch --console-pty waits for ever.
+    // _exit skips the handlers. Nothing is left to flush by then: the verdict is already written.
+    [DllImport("/usr/lib/libSystem.dylib", EntryPoint = "_exit")]
+    private static extern void Terminate(int status);
 }
