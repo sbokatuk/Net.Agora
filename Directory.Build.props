@@ -53,8 +53,8 @@
       Android and iOS whiteboard SDKs in separate repositories with separate release cadences, so
       unlike the RTC pair there is no reason to expect them to meet.
     -->
-    <NetAgoraWhiteboardAndroidVersion>2.16.123.2</NetAgoraWhiteboardAndroidVersion>
-    <NetAgoraWhiteboardIosVersion>2.16.137.2</NetAgoraWhiteboardIosVersion>
+    <NetAgoraWhiteboardAndroidVersion>2.16.134.1</NetAgoraWhiteboardAndroidVersion>
+    <NetAgoraWhiteboardIosVersion>2.16.147.1</NetAgoraWhiteboardIosVersion>
     <!--
       Fastboard is a release track of its own. On Android it depends on Net.Agora.Whiteboard.Android
       at a minimum version; on iOS it embeds its own copy of the whiteboard. Either way its pins need
@@ -89,8 +89,8 @@
       Whiteboard tracks its iOS line, like every other product here — which for this one means the
       newer of the two.
     -->
-    <AgoraWhiteboardIosVersion>2.16.137</AgoraWhiteboardIosVersion>
-    <AgoraWhiteboardBindingRevision>2</AgoraWhiteboardBindingRevision>
+    <AgoraWhiteboardIosVersion>2.16.147</AgoraWhiteboardIosVersion>
+    <AgoraWhiteboardBindingRevision>1</AgoraWhiteboardBindingRevision>
     <!--
       Fastboard, likewise: its own native line and its own revision counter.
     -->
