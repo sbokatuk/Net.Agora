@@ -44,10 +44,10 @@
     <NetAgoraSignalingMacVersion>2.2.8.3</NetAgoraSignalingMacVersion>
     <NetAgoraChatAndroidVersion>1.4.0.2</NetAgoraChatAndroidVersion>
     <!--
-      Ahead of Android's, which is not a mistake: Net.Agora.Chat.iOS 1.4.0.3 moved its AgoraInfra_iOS
-      pin, which has no Android counterpart. The Chat pod itself is 1.4.0 on both.
+      Ahead of Android's, which is not a mistake: Net.Agora.Chat.iOS 1.4.0.3 and 1.4.0.4 each moved
+      its AgoraInfra_iOS pin, which has no Android counterpart. The Chat pod itself is 1.4.0 on both.
     -->
-    <NetAgoraChatIosVersion>1.4.0.3</NetAgoraChatIosVersion>
+    <NetAgoraChatIosVersion>1.4.0.4</NetAgoraChatIosVersion>
     <!--
       The one product whose two platform packages sit on different version lines. netless keeps the
       Android and iOS whiteboard SDKs in separate repositories with separate release cadences, so
@@ -84,7 +84,7 @@
       the same reason Signaling has one.
     -->
     <AgoraChatIosVersion>1.4.0</AgoraChatIosVersion>
-    <AgoraChatBindingRevision>3</AgoraChatBindingRevision>
+    <AgoraChatBindingRevision>4</AgoraChatBindingRevision>
     <!--
       Whiteboard tracks its iOS line, like every other product here — which for this one means the
       newer of the two.
