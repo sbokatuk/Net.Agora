@@ -21,15 +21,16 @@
     <NetAgoraVoiceAndroidVersion>4.6.4.1</NetAgoraVoiceAndroidVersion>
     <NetAgoraVoiceIosVersion>4.7.0.1</NetAgoraVoiceIosVersion>
     <!--
-      2.2.6.3 is not optional for anyone who uses Signaling alongside Video or Voice. Every earlier
-      Signaling package ships an `aosl` that the RTC engine cannot necessarily load against, and
-      because all of them land at one path in a consuming app — lib/<abi>/libaosl.so on Android,
-      Frameworks/aosl.framework on Apple — the app keeps a single copy and both products run
-      against it. On Android that surfaced as RtcEngine.Create() returning null on a device, with a
-      build that reported nothing. See each binding repository's signaling-v2.2.6.3 release note.
+      Signaling and the RTC products each ship an `aosl`, and all of them land at one path in a
+      consuming app — lib/<abi>/libaosl.so on Android, Frameworks/aosl.framework on Apple — so the
+      app keeps a single copy and both products run against it. Each Signaling pin is therefore
+      chosen against the RTC pins above, not on its own. Before 2.2.6.3 the copies did not get along:
+      on Android RtcEngine.Create() returned null on a device, with a build that reported nothing.
+      iOS 2.2.6.4 carries the aosl 1.3.16 that the RTC 4.7.0 pods bundle, which RTC 4.7.0 needs and
+      RTC 4.6.2 also loads against. See each binding repository's signaling-v release notes.
     -->
     <NetAgoraSignalingAndroidVersion>2.2.6.3</NetAgoraSignalingAndroidVersion>
-    <NetAgoraSignalingIosVersion>2.2.6.3</NetAgoraSignalingIosVersion>
+    <NetAgoraSignalingIosVersion>2.2.6.4</NetAgoraSignalingIosVersion>
     <!--
       The native macOS (AppKit) bindings, from sbokatuk/Net.Agora.Mac. Only Video, Voice and
       Signaling have a macOS leg — Agora ships no native macOS SDK for Chat/Whiteboard/Fastboard.
@@ -42,7 +43,7 @@
       Net.Agora.Signaling.Mac takes its aosl out of the macOS RTC archive, so each Signaling.Mac
       release pairs with one Video.Mac/Voice.Mac line. Move the pins as the pair its release note names.
     -->
-    <NetAgoraSignalingMacVersion>2.2.8.3</NetAgoraSignalingMacVersion>
+    <NetAgoraSignalingMacVersion>2.3.0.2</NetAgoraSignalingMacVersion>
     <NetAgoraChatAndroidVersion>1.4.0.2</NetAgoraChatAndroidVersion>
     <!--
       Ahead of Android's, which is not a mistake: Net.Agora.Chat.iOS 1.4.0.3 moved its AgoraInfra_iOS
@@ -81,7 +82,7 @@
       revision counter — it did not exist when the RTC products shipped revision 1.
     -->
     <AgoraSignalingIosVersion>2.2.6</AgoraSignalingIosVersion>
-    <AgoraSignalingBindingRevision>3</AgoraSignalingBindingRevision>
+    <AgoraSignalingBindingRevision>4</AgoraSignalingBindingRevision>
     <!--
       Chat is a third product on a third native line — 1.4.x — with its own revision counter, for
       the same reason Signaling has one.
