@@ -10,15 +10,16 @@
     PackageReference at an exact pinned version — never a floating range, since a float would turn
     an unrelated upstream change into a build break here. Each version is
     <native SDK version>.<binding revision> in its own repository — see sbokatuk/Net.Agora.Android
-    and sbokatuk/Net.Agora.iOS's own Directory.Build.props. The two numbers don't match: Agora
-    ships Android and iOS on independent schedules, and the iOS CocoaPods pod for a release has
-    been observed lagging Maven Central by a point version.
+    and sbokatuk/Net.Agora.iOS's own Directory.Build.props. The numbers needn't match, and often
+    don't: Agora ships Android, iOS and macOS on independent schedules, and either side can be the
+    one ahead. The iOS pod for a release has lagged Maven Central by a point version before; with
+    4.7.0 it is the other way round, on CocoaPods for iOS and macOS but not yet on Maven.
   -->
   <PropertyGroup>
-    <NetAgoraVideoAndroidVersion>4.6.3.5</NetAgoraVideoAndroidVersion>
-    <NetAgoraVideoIosVersion>4.6.2.5</NetAgoraVideoIosVersion>
-    <NetAgoraVoiceAndroidVersion>4.6.3.5</NetAgoraVoiceAndroidVersion>
-    <NetAgoraVoiceIosVersion>4.6.2.5</NetAgoraVoiceIosVersion>
+    <NetAgoraVideoAndroidVersion>4.6.4.1</NetAgoraVideoAndroidVersion>
+    <NetAgoraVideoIosVersion>4.7.0.1</NetAgoraVideoIosVersion>
+    <NetAgoraVoiceAndroidVersion>4.6.4.1</NetAgoraVoiceAndroidVersion>
+    <NetAgoraVoiceIosVersion>4.7.0.1</NetAgoraVoiceIosVersion>
     <!--
       2.2.6.3 is not optional for anyone who uses Signaling alongside Video or Voice. Every earlier
       Signaling package ships an `aosl` that the RTC engine cannot necessarily load against, and
@@ -35,8 +36,8 @@
       These are a distinct platform from the iOS ones (net*-macos / AppKit, not Mac Catalyst, which
       Agora ships no slice for), on version lines of their own that need not match the iOS ones.
     -->
-    <NetAgoraVideoMacVersion>4.6.2.2</NetAgoraVideoMacVersion>
-    <NetAgoraVoiceMacVersion>4.6.2.2</NetAgoraVoiceMacVersion>
+    <NetAgoraVideoMacVersion>4.7.0.1</NetAgoraVideoMacVersion>
+    <NetAgoraVoiceMacVersion>4.7.0.1</NetAgoraVoiceMacVersion>
     <!--
       Net.Agora.Signaling.Mac takes its aosl out of the macOS RTC archive, so each Signaling.Mac
       release pairs with one Video.Mac/Voice.Mac line. Move the pins as the pair its release note names.
@@ -64,15 +65,17 @@
     <NetAgoraFastboardIosVersion>1.4.5.2</NetAgoraFastboardIosVersion>
 
     <!--
-      Each product's own version tracks its iOS platform package's native version component — the
-      same convention sbokatuk/DatadogNet's facade uses, and for the same reason: it is
-      deliberately the line a reader is more likely to check first, since it is the one that lags.
-      The global VersionPrefix default is the Video line; the Voice projects override it with
-      theirs.
+      Each product's own version is its iOS platform package's native version, plus a revision
+      counter of this repository's — the convention sbokatuk/DatadogNet's facade uses too. That is a
+      fixed rule, chosen so the number never depends on which platform happens to be ahead: it
+      doesn't claim the other platforms run that native version. Android's RTC line is behind iOS's
+      today (4.6.4 against 4.7.0) where it used to be ahead; each release note's package table
+      gives the native version on every platform. The global VersionPrefix default is the Video
+      line; the Voice projects override it with theirs.
     -->
-    <AgoraVideoIosVersion>4.6.2</AgoraVideoIosVersion>
-    <AgoraVoiceIosVersion>4.6.2</AgoraVoiceIosVersion>
-    <AgoraBindingRevision>5</AgoraBindingRevision>
+    <AgoraVideoIosVersion>4.7.0</AgoraVideoIosVersion>
+    <AgoraVoiceIosVersion>4.7.0</AgoraVoiceIosVersion>
+    <AgoraBindingRevision>1</AgoraBindingRevision>
     <!--
       Signaling is a different product with its own native version line (2.2.x) and its own
       revision counter — it did not exist when the RTC products shipped revision 1.
