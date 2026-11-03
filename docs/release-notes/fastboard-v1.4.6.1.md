@@ -15,7 +15,8 @@ Fastboard 1.8.2 throws `Java.Lang.IllegalStateException` ("FastRoom must be used
 from `Join`, `Disconnect` and `Destroy` on any other thread, and a `JoinAsync`, `Disconnect` or
 `Dispose` that runs after an `await` can easily be on a pool thread. The client now runs those calls
 on the main thread: straight away from it, queued from anywhere else. A queued join that fails still
-completes `JoinAsync` with the failure. iOS needed no change, as its binding already does the same.
+completes `JoinAsync` with the failure, and one that hasn't run by the time the client is disposed
+fails instead of joining. iOS needed no change, as its binding already does the same.
 
 ### What changes on iOS
 
@@ -57,6 +58,8 @@ On Android, `Fastboard.Version` still returns `1.8.1`: that is netless's constan
   read-only and back, and both left and rejoined on the same view.
 - `Disconnect` called from a pool thread on Android disconnected the room. Without the main-thread
   change, the same call threw `IllegalStateException`.
+- A join queued from a pool thread on Android, with the client disposed before it ran, failed without
+  reaching the board. A device check now covers it.
 
 ## Packages
 
