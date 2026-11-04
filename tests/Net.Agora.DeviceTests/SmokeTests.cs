@@ -105,6 +105,14 @@ public static class SmokeTests
     /// <summary>Writes a line to the platform log. Set by each head.</summary>
     public static Action<string> Reporter { get; set; } = _ => { };
 
+    /// <summary>
+    /// Looks up a setting the runner script passed to this run, or null. Set by each head: the iOS
+    /// head reads its environment, the Android head a file the runner script writes into the app's
+    /// private storage. Only the live checks read any, and without theirs they are skipped, which is
+    /// how CI runs them.
+    /// </summary>
+    public static Func<string, string?> Setting { get; set; } = _ => null;
+
     /// <summary>The client every check after construction shares. Set by <see cref="ConstructsTheClient"/>.</summary>
     private static AgoraClient? _client;
 
@@ -131,6 +139,8 @@ public static class SmokeTests
         new("an unregistered room fails the join within the configured timeout", LoginFailsWithinTimeout),
         new("disconnect without a join is a no-op", LogoutWithoutALoginIsANoOp),
         new("disposes cleanly", DisposesCleanly),
+        new("live: a stroke is an undo step, and Undo and Redo take it off the board and back", UndoAndRedoChangeTheScene),
+        new("live: a read-only join gets its undo history once writing is granted", ReadOnlyJoinGetsHistoryWhenWritable),
 #elif AGORA_CHAT
         new("a missing App ID, user ID or token is rejected before any native call", MissingAppIdIsRejected),
         new("constructs the client", ConstructsTheClient),
@@ -486,6 +496,401 @@ public static class SmokeTests
         Uid = UserId,
         Timeout = JoinTimeout,
     };
+
+    // The live checks below join a real room, so they need a registered App Identifier and a room
+    // token, which CI doesn't have. Without them each check is skipped, not failed. They draw a
+    // stroke, then undo and redo it, then undo it once more, so a room is left with the scene it
+    // had. Even so, use a room nobody else is drawing in: the scene is compared as a whole.
+
+    /// <summary>How long the board gets to report a change. Generous for the same reason as the join.</summary>
+    private static readonly TimeSpan BoardTimeout = TimeSpan.FromSeconds(15);
+
+    private static async Task UndoAndRedoChangeTheScene()
+    {
+        await using var live = await LiveBoard.JoinAsync(writable: true);
+
+        // The fix under test: a room keeps no history until serialization is turned on, and turning
+        // it on is what makes the board report both counts at once. Before it, nothing was raised
+        // here at all, however much was drawn.
+        await live.History.WaitForAsync(h => h == (0, 0), "a writable join to report an empty history");
+
+        var empty = await live.SceneAsync();
+        Report($"scene before the stroke: {empty}");
+        await live.DrawStrokeAsync();
+
+        var drawn = await live.WaitForSceneAsync(scene => scene != empty, "the stroke to reach the scene");
+        await live.History.WaitForAsync(h => h == (1, 0), "the stroke to be one undo step");
+
+        live.Client.Undo();
+        await live.History.WaitForAsync(h => h == (0, 1), "Undo to make the stroke a redo step");
+        await live.WaitForSceneAsync(scene => scene == empty, "Undo to take the stroke off the scene");
+
+        live.Client.Redo();
+        await live.History.WaitForAsync(h => h == (1, 0), "Redo to make the stroke an undo step again");
+        await live.WaitForSceneAsync(scene => scene == drawn, "Redo to put the same stroke back");
+
+        // Leaves the room's scene as it was found.
+        live.Client.Undo();
+        await live.WaitForSceneAsync(scene => scene == empty, "the last Undo to clear the stroke again");
+    }
+
+    private static async Task ReadOnlyJoinGetsHistoryWhenWritable()
+    {
+        await using var live = await LiveBoard.JoinAsync(writable: false);
+
+        // A read-only room refuses to turn serialization on, so the client doesn't ask: nothing is
+        // reported, and Undo is a harmless no-op rather than an error.
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        Assert(live.History.Count == 0, $"a read-only join reported history {live.History.Latest}.");
+        live.Client.Undo();
+
+        await live.Client.SetWritableAsync(true);
+        await live.History.WaitForAsync(h => h == (0, 0), "granting writing to report an empty history");
+
+        var empty = await live.SceneAsync();
+        Report($"scene before the stroke: {empty}");
+        await live.DrawStrokeAsync();
+        await live.WaitForSceneAsync(scene => scene != empty, "the stroke to reach the scene");
+        await live.History.WaitForAsync(h => h == (1, 0), "the stroke to be one undo step");
+
+        // Leaves the room's scene as it was found.
+        live.Client.Undo();
+        await live.WaitForSceneAsync(scene => scene == empty, "Undo to take the stroke off the scene");
+    }
+
+    /// <summary>
+    /// A client joined to the live room, with its board view on screen. The board is a web page, so
+    /// a stroke is drawn as touch events dispatched in that page and the scene is read from the
+    /// page's own room object: neither needs touch injection, which the iOS simulator can't do from
+    /// a test, and both behave the same on the two platforms.
+    /// </summary>
+    private sealed class LiveBoard : IAsyncDisposable
+    {
+#if ANDROID
+        private readonly global::Agora.Whiteboard.WhiteboardView _view;
+#else
+        private readonly global::Net.Agora.Whiteboard.iOS.WhiteBoardView _view;
+#endif
+
+        private LiveBoard(
+            AgoraClient client,
+#if ANDROID
+            global::Agora.Whiteboard.WhiteboardView view)
+#else
+            global::Net.Agora.Whiteboard.iOS.WhiteBoardView view)
+#endif
+        {
+            Client = client;
+            _view = view;
+            History = new HistoryLog(client);
+        }
+
+        public AgoraClient Client { get; }
+
+        public HistoryLog History { get; }
+
+        public static async Task<LiveBoard> JoinAsync(bool writable)
+        {
+            var appIdentifier = Setting("AGORA_WHITEBOARD_APP_IDENTIFIER");
+            var roomUuid = Setting("AGORA_WHITEBOARD_ROOM_UUID");
+            var roomToken = Setting("AGORA_WHITEBOARD_ROOM_TOKEN");
+
+            if (string.IsNullOrEmpty(appIdentifier) || string.IsNullOrEmpty(roomUuid) || string.IsNullOrEmpty(roomToken))
+            {
+                throw new SmokeTestSkippedException(
+                    "no live room. Give the runner script AGORA_WHITEBOARD_APP_IDENTIFIER, AGORA_WHITEBOARD_ROOM_UUID, " +
+                    "AGORA_WHITEBOARD_ROOM_TOKEN and, for a room outside China, AGORA_WHITEBOARD_REGION.");
+            }
+
+            var options = new AgoraClientOptions
+            {
+                AppIdentifier = appIdentifier,
+                RoomUuid = roomUuid,
+                RoomToken = roomToken,
+                Region = Setting("AGORA_WHITEBOARD_REGION") is { Length: > 0 } region ? region : null,
+
+                // A user id per check. On Android, whiteboard 2.16.134 hands a session for the same
+                // App Identifier, room and user from one board to the next by asking the old board
+                // to leave first. If that board's page is already gone, the new join fails with
+                // StaleScope, and one check's teardown shouldn't decide whether the next one joins.
+                Uid = $"{UserId}-{(writable ? "writer" : "reader")}",
+                Writable = writable,
+                Timeout = JoinTimeout,
+            };
+
+#if ANDROID
+            var context = AndroidContext ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set.");
+            var view = new global::Agora.Whiteboard.WhiteboardView(context);
+            var client = new AgoraClient(options, view, context);
+
+            // On screen, so the page lays out at the activity's size as it would in an app.
+            ((Android.App.Activity)context).SetContentView(view);
+#else
+            var view = new global::Net.Agora.Whiteboard.iOS.WhiteBoardView();
+            var client = new AgoraClient(options, view);
+            var root = (UIKit.UIApplication.SharedApplication.Delegate as AppDelegate)?.Window?.RootViewController?.View
+                ?? throw new InvalidOperationException("the app has no window to show the board in.");
+            view.Frame = root.Bounds;
+            root.AddSubview(view);
+#endif
+
+            var board = new LiveBoard(client, view);
+
+            try
+            {
+                await client.JoinAsync();
+
+                // Pencil, explicitly, so the stroke doesn't depend on the room's last tool.
+                if (writable)
+                {
+                    client.SetTool(AgoraWhiteboardTool.Pencil, color: 0x1E88E5, strokeWidth: 8);
+                }
+            }
+            catch
+            {
+                await board.DisposeAsync();
+                throw;
+            }
+
+            return board;
+        }
+
+        /// <summary>
+        /// The bounding box of everything on the current scene, as the page's room reports it. Any
+        /// stroke changes it, and taking the stroke away puts it back.
+        /// </summary>
+        public async Task<string> SceneAsync()
+        {
+            var scene = await EvaluateAsync(
+                "(function () { var room = window.room; if (!room) { return 'no room object in the page'; } " +
+                "return JSON.stringify(room.getBoundingRect(room.state.sceneState.scenePath)); })()");
+
+            if (scene is null || !scene.StartsWith('{'))
+            {
+                throw new InvalidOperationException($"couldn't read the scene: {scene ?? "the page returned nothing"}.");
+            }
+
+            return scene;
+        }
+
+        public async Task<string> WaitForSceneAsync(Func<string, bool> condition, string what)
+        {
+            var deadline = DateTime.UtcNow + BoardTimeout;
+            var scene = await SceneAsync();
+
+            while (!condition(scene))
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new InvalidOperationException($"timed out waiting for {what}: the scene's bounds stayed {scene}.");
+                }
+
+                await Task.Delay(200);
+                scene = await SceneAsync();
+            }
+
+            Report($"scene: {scene}");
+            return scene;
+        }
+
+        /// <summary>
+        /// Draws one diagonal stroke across the middle of the board: a finger's worth of touch
+        /// events, about 60 a second. On a phone the board listens only for touch events and reads
+        /// only each touch's identifier and position, so these are plain <c>Event</c>s carrying a
+        /// touch list. WebKit on iOS can't construct a <c>Touch</c>, so a real <c>TouchEvent</c>
+        /// couldn't be built the same way on both platforms.
+        /// </summary>
+        public async Task DrawStrokeAsync()
+        {
+            var started = await EvaluateAsync(StrokeScript);
+            Report(started ?? "the stroke script returned nothing");
+
+            var deadline = DateTime.UtcNow + BoardTimeout;
+            while (await EvaluateAsync("String(window.__netAgoraStroke)") != "done")
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new InvalidOperationException($"the stroke never finished: {started}.");
+                }
+
+                await Task.Delay(50);
+            }
+        }
+
+        private const string StrokeScript = """
+            (function () {
+                var w = window.innerWidth, h = window.innerHeight;
+                var target = document.elementFromPoint(w / 2, h / 2);
+                if (!target) { return 'nothing at the middle of a ' + w + 'x' + h + ' page'; }
+                function fire(type, x, y) {
+                    var touch = { identifier: 7, target: target, clientX: x, clientY: y, pageX: x, pageY: y, screenX: x, screenY: y, force: 1 };
+                    var one = { length: 1, 0: touch, item: function (i) { return i === 0 ? touch : null; } };
+                    var none = { length: 0, item: function () { return null; } };
+                    var event = new Event(type, { bubbles: true, cancelable: true });
+                    Object.defineProperty(event, 'changedTouches', { value: one });
+                    Object.defineProperty(event, 'touches', { value: type === 'touchend' ? none : one });
+                    Object.defineProperty(event, 'targetTouches', { value: type === 'touchend' ? none : one });
+                    target.dispatchEvent(event);
+                }
+                var x0 = w * 0.3, y0 = h * 0.35, x1 = w * 0.7, y1 = h * 0.65, steps = 15, step = 0;
+                window.__netAgoraStroke = 'drawing';
+                fire('touchstart', x0, y0);
+                (function next() {
+                    step++;
+                    var x = x0 + (x1 - x0) * step / steps, y = y0 + (y1 - y0) * step / steps;
+                    fire('touchmove', x, y);
+                    if (step < steps) { setTimeout(next, 16); return; }
+                    fire('touchend', x, y);
+                    window.__netAgoraStroke = 'done';
+                })();
+                return 'stroke on ' + target.tagName.toLowerCase() + ' in a ' + w + 'x' + h + ' page';
+            })()
+            """;
+
+        /// <summary>
+        /// Runs a script in the board page and returns its value as a string. Only a string comes
+        /// back the same way on both platforms, so every script here returns one.
+        /// </summary>
+        private Task<string?> EvaluateAsync(string script)
+        {
+            var result = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+#if ANDROID
+            // WebView hands the value back encoded as JSON, so a string arrives quoted.
+            _view.EvaluateJavascript(script, new JavascriptResult(json =>
+                result.TrySetResult(json is null or "null"
+                    ? null
+                    : new Org.Json.JSONTokener(json).NextValue()?.ToString())));
+#else
+            _view.EvaluateJavaScript(script, (value, error) =>
+            {
+                if (error is not null)
+                {
+                    result.TrySetException(new InvalidOperationException($"the board page threw: {error.LocalizedDescription}"));
+                }
+                else
+                {
+                    result.TrySetResult(value?.ToString());
+                }
+            });
+#endif
+            return result.Task;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            // Lets the room finish leaving before its page goes, as an app would by keeping the
+            // view around. See the Uid above for what a page torn down mid-leave does on Android.
+            if (Client.IsJoined)
+            {
+                var left = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                void OnPhase(object? sender, AgoraWhiteboardPhaseEventArgs e)
+                {
+                    if (e.Phase == AgoraWhiteboardPhase.Disconnected)
+                    {
+                        left.TrySetResult();
+                    }
+                }
+
+                Client.PhaseChanged += OnPhase;
+                var started = DateTime.UtcNow;
+                Client.Disconnect();
+                var disconnected = await Task.WhenAny(left.Task, Task.Delay(BoardTimeout)) == left.Task;
+                Client.PhaseChanged -= OnPhase;
+                Report(disconnected
+                    ? $"disconnected after {(DateTime.UtcNow - started).TotalSeconds:0.0}s"
+                    : "the room never reported the disconnect");
+            }
+
+            History.Dispose();
+            Client.Dispose();
+#if ANDROID
+            ((Android.App.Activity)_view.Context!).SetContentView(new Android.Views.View(_view.Context));
+            _view.Destroy();
+#else
+            _view.RemoveFromSuperview();
+#endif
+        }
+    }
+
+#if ANDROID
+    private sealed class JavascriptResult(Action<string?> received) : Java.Lang.Object, Android.Webkit.IValueCallback
+    {
+        public void OnReceiveValue(Java.Lang.Object? value) => received(value?.ToString());
+    }
+#endif
+
+    /// <summary>Keeps the latest <c>HistoryChanged</c> report as an (undo, redo) pair.</summary>
+    private sealed class HistoryLog : IDisposable
+    {
+        private readonly AgoraClient _client;
+        private readonly object _gate = new();
+        private (int Undo, int Redo)? _latest;
+        private int _count;
+
+        public HistoryLog(AgoraClient client)
+        {
+            _client = client;
+            _client.HistoryChanged += OnHistoryChanged;
+        }
+
+        public int Count
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _count;
+                }
+            }
+        }
+
+        public (int Undo, int Redo)? Latest
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _latest;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Waits for the latest report to satisfy <paramref name="condition"/>. The two counts
+        /// arrive on separate callbacks, so the pair can pass through a state that is neither the
+        /// old one nor the new one. Only where it settles is checked.
+        /// </summary>
+        public async Task WaitForAsync(Func<(int Undo, int Redo), bool> condition, string what)
+        {
+            var deadline = DateTime.UtcNow + BoardTimeout;
+
+            while (Latest is not { } latest || !condition(latest))
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new InvalidOperationException(Latest is { } last
+                        ? $"timed out waiting for {what}: the history stayed at undo={last.Undo} redo={last.Redo}."
+                        : $"timed out waiting for {what}: HistoryChanged was never raised.");
+                }
+
+                await Task.Delay(100);
+            }
+
+            var settled = Latest!.Value;
+            Report($"history: undo={settled.Undo} redo={settled.Redo}");
+        }
+
+        public void Dispose() => _client.HistoryChanged -= OnHistoryChanged;
+
+        private void OnHistoryChanged(object? sender, AgoraWhiteboardHistoryEventArgs e)
+        {
+            lock (_gate)
+            {
+                _latest = (e.UndoSteps, e.RedoSteps);
+                _count++;
+            }
+        }
+    }
 #elif AGORA_CHAT
     private static void MissingAppIdIsRejected()
     {

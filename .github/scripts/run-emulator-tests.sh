@@ -155,6 +155,23 @@ echo "==> granting camera/microphone permissions"
 adb shell pm grant "${PACKAGE_NAME}" android.permission.CAMERA
 adb shell pm grant "${PACKAGE_NAME}" android.permission.RECORD_AUDIO
 
+# The live Whiteboard checks join a real room when one is named here and are skipped otherwise. CI
+# names none. The app reads the settings from its private storage and deletes them. They go over adb's
+# stdin, so no value is on a command line, and printf is a shell builtin.
+live_settings=""
+for name in AGORA_WHITEBOARD_APP_IDENTIFIER AGORA_WHITEBOARD_ROOM_UUID AGORA_WHITEBOARD_ROOM_TOKEN AGORA_WHITEBOARD_REGION; do
+    if [ -n "${!name:-}" ]; then
+        live_settings="${live_settings}${name}=${!name}"$'\n'
+    fi
+done
+if [ -n "${live_settings}" ]; then
+    echo "==> passing the live room settings to the app"
+    printf '%s' "${live_settings}" \
+        | adb shell "run-as ${PACKAGE_NAME} sh -c 'mkdir -p files && cat > files/live-settings.env'"
+else
+    adb shell "run-as ${PACKAGE_NAME} rm -f files/live-settings.env" || true
+fi
+
 echo "==> launching"
 adb logcat -c
 # The activity name is pinned in the app rather than left to the generated crc64* name, so this
