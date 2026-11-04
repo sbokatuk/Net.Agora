@@ -94,7 +94,7 @@
       newer of the two.
     -->
     <AgoraWhiteboardIosVersion>2.16.147</AgoraWhiteboardIosVersion>
-    <AgoraWhiteboardBindingRevision>1</AgoraWhiteboardBindingRevision>
+    <AgoraWhiteboardBindingRevision>2</AgoraWhiteboardBindingRevision>
     <!--
       Fastboard, likewise: its own native line and its own revision counter.
     -->
