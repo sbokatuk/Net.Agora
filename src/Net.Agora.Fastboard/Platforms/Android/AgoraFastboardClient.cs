@@ -1,6 +1,7 @@
 using Agora.Fastboard;
 using Agora.Fastboard.Extension;
 using Agora.Fastboard.Model;
+using Android.OS;
 
 using NativeFastboard = Agora.Fastboard.Fastboard;
 using NativeRoomPhase = Agora.Whiteboard.Domain.RoomPhase;
@@ -9,6 +10,8 @@ namespace Net.Agora.Fastboard;
 
 public sealed partial class AgoraFastboardClient
 {
+    private static readonly Handler MainLooperHandler = new(Looper.MainLooper!);
+
     private readonly NativeFastboard _fastboard;
     private readonly RoomListener _listener;
 
@@ -32,8 +35,18 @@ public sealed partial class AgoraFastboardClient
         _listener = new RoomListener(this);
     }
 
-    private void JoinCore(Action<AgoraFastboardException?> complete)
+    private void JoinCore(Action<AgoraFastboardException?> complete) =>
+        OnMainThread(() => JoinOnMainThread(complete), complete);
+
+    private void JoinOnMainThread(Action<AgoraFastboardException?> complete)
     {
+        // A join queued from another thread can run after Dispose, which then found no room to
+        // close. Creating one now would leave it connected with nothing left to disconnect it.
+        if (Volatile.Read(ref _disposed))
+        {
+            throw new AgoraFastboardException("the board was disposed before the join could start.");
+        }
+
         var roomOptions = new FastRoomOptions(
             _options.AppIdentifier!,
             _options.RoomUuid!,
@@ -54,11 +67,14 @@ public sealed partial class AgoraFastboardClient
         _room.Join();
     }
 
-    private void DisconnectCore()
+    // _room is read and cleared on the main thread, like the join that sets it, so a disconnect
+    // queued behind a join sees the room that join created.
+    private void DisconnectCore() => OnMainThread(() =>
     {
-        _room?.Disconnect();
+        var room = _room;
         _room = null;
-    }
+        room?.Disconnect();
+    });
 
     private void SetToolCore(AgoraFastboardTool tool, uint? color)
     {
@@ -81,10 +97,39 @@ public sealed partial class AgoraFastboardClient
     private void SetWritableCore(bool writable, Action<AgoraFastboardException?> complete) =>
         _room!.SetWritable(writable, new Result(complete));
 
-    private void DisposeCore()
+    private void DisposeCore() => DisconnectCore();
+
+    /// <summary>
+    /// Runs <paramref name="action"/> on the main thread: straight away from it, and queued there
+    /// from any other, so it may then finish after this returns.
+    /// </summary>
+    /// <remarks>
+    /// Fastboard 1.8.2 throws <c>IllegalStateException</c> ("FastRoom must be used on the main
+    /// thread") from <c>Join</c>, <c>Disconnect</c> and <c>Destroy</c> anywhere else, and this
+    /// façade's callers can be anywhere: an awaited call can resume on a pool thread. iOS's
+    /// Fastboard has the same rule, which the shim there enforces in the same way. A queued action
+    /// can no longer throw to its caller, so a failure is handed to <paramref name="failed"/>.
+    /// </remarks>
+    private static void OnMainThread(Action action, Action<AgoraFastboardException?>? failed = null)
     {
-        _room?.Disconnect();
-        _room = null;
+        if (Looper.MyLooper() == Looper.MainLooper)
+        {
+            action();
+            return;
+        }
+
+        MainLooperHandler.Post(() =>
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception exception) when (failed is not null)
+            {
+                failed(exception as AgoraFastboardException
+                    ?? new AgoraFastboardException(exception.Message, errorCode: 0, exception));
+            }
+        });
     }
 
     private static FastRegion ToRegion(string? region) => region switch

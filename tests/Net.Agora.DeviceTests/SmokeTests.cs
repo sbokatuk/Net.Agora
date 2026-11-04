@@ -119,6 +119,9 @@ public static class SmokeTests
         new("an unregistered room fails the join within the configured timeout", LoginFailsWithinTimeout),
         new("disconnect without a join is a no-op", LogoutWithoutALoginIsANoOp),
         new("disposes cleanly", DisposesCleanly),
+#if ANDROID
+        new("a join queued off the main thread fails if the board is disposed first", QueuedJoinAfterDisposeFails),
+#endif
 #elif AGORA_WHITEBOARD
         new("a missing identifier is rejected before any native call", MissingAppIdIsRejected),
         new("every documented region key reaches the SDK", AcceptsEveryRegionKey),
@@ -308,6 +311,34 @@ public static class SmokeTests
 
         Assert(!Client.IsJoined, "IsJoined is true after Dispose.");
     }
+
+#if ANDROID
+    private static async Task QueuedJoinAfterDisposeFails()
+    {
+        // Fastboard 1.8.2 takes room calls on the main thread only, so a JoinAsync from any other
+        // thread is queued there. Holding the main thread while one is queued and the board is
+        // disposed forces the order an app can hit by chance: the join runs after Dispose. It must
+        // fail without creating a room, or that room stays connected with nothing left to close it.
+        var board = CreateClient(Options());
+        using var gate = new ManualResetEventSlim();
+        new Android.OS.Handler(Android.OS.Looper.MainLooper!).Post(() => gate.Wait(TimeSpan.FromSeconds(10)));
+
+        Task? join = null;
+        await Task.Run(() =>
+        {
+            join = board.JoinAsync();
+            board.Dispose();
+            gate.Set();
+        });
+
+        var error = await ThrowsAsync<AgoraClientException>(() => join!, "a join queued before Dispose");
+        Report(error.Message);
+
+        Assert(error.Message.Contains("disposed", StringComparison.Ordinal),
+            $"the queued join reached the board after Dispose: {error.Message}");
+        Assert(!board.IsJoined, "IsJoined is true on a disposed board.");
+    }
+#endif
 
     private static AgoraClientOptions Options() => new()
     {

@@ -62,8 +62,8 @@
       at a minimum version; on iOS it embeds its own copy of the whiteboard. Either way its pins need
       not follow the whiteboard ones.
     -->
-    <NetAgoraFastboardAndroidVersion>1.8.1.2</NetAgoraFastboardAndroidVersion>
-    <NetAgoraFastboardIosVersion>1.4.5.2</NetAgoraFastboardIosVersion>
+    <NetAgoraFastboardAndroidVersion>1.8.2.1</NetAgoraFastboardAndroidVersion>
+    <NetAgoraFastboardIosVersion>1.4.6.1</NetAgoraFastboardIosVersion>
 
     <!--
       Each product's own version is its iOS platform package's native version, plus a revision
@@ -98,8 +98,8 @@
     <!--
       Fastboard, likewise: its own native line and its own revision counter.
     -->
-    <AgoraFastboardIosVersion>1.4.5</AgoraFastboardIosVersion>
-    <AgoraFastboardBindingRevision>2</AgoraFastboardBindingRevision>
+    <AgoraFastboardIosVersion>1.4.6</AgoraFastboardIosVersion>
+    <AgoraFastboardBindingRevision>1</AgoraFastboardBindingRevision>
     <VersionPrefix>$(AgoraVideoIosVersion).$(AgoraBindingRevision)</VersionPrefix>
   </PropertyGroup>
 
