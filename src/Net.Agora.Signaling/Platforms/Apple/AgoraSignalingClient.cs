@@ -1,5 +1,7 @@
-// One Apple source set for both iOS and native macOS — the AgoraRtmClientKit surface is the same on
-// both (RTM has no platform-specific types here), so only the binding namespace differs per TFM.
+// One Apple source set for both iOS and native macOS. The AgoraRtmClientKit surface is the same on
+// both apart from the connection callback: RTM 2.3.0, which only the macOS binding is on, replaced
+// connectionChangedToState with a link-state event. That one override is per platform; otherwise
+// only the binding namespace differs per TFM.
 using Foundation;
 #if MACOS
 using Net.Agora.Signaling.Mac;
@@ -87,9 +89,23 @@ public sealed partial class AgoraSignalingClient
                 message?.RawData?.ToArray());
         }
 
+#if MACOS
+        public override void DidReceiveLinkStateEvent(AgoraRtmClientKit rtmKit, AgoraRtmLinkStateEvent @event) =>
+            owner.RaiseConnectionStateChanged(
+                @event.CurrentState switch
+                {
+                    AgoraRtmLinkState.Connecting => AgoraConnectionState.Connecting,
+                    AgoraRtmLinkState.Connected => AgoraConnectionState.Connected,
+                    AgoraRtmLinkState.Suspended => AgoraConnectionState.Reconnecting,
+                    AgoraRtmLinkState.Failed => AgoraConnectionState.Failed,
+                    _ => AgoraConnectionState.Disconnected,
+                },
+                (int)@event.ReasonCode);
+#else
         public override void ConnectionChangedToState(
             AgoraRtmClientKit rtmKit, string channelName, AgoraRtmClientConnectionState state, nint reason) =>
             owner.RaiseConnectionStateChanged((AgoraConnectionState)(long)state, (int)reason);
+#endif
 
         public override void TokenPrivilegeWillExpire(AgoraRtmClientKit rtmKit, string? channel) =>
             owner.RaiseTokenPrivilegeWillExpire();

@@ -10,51 +10,53 @@
     PackageReference at an exact pinned version — never a floating range, since a float would turn
     an unrelated upstream change into a build break here. Each version is
     <native SDK version>.<binding revision> in its own repository — see sbokatuk/Net.Agora.Android
-    and sbokatuk/Net.Agora.iOS's own Directory.Build.props. The two numbers don't match: Agora
-    ships Android and iOS on independent schedules, and the iOS CocoaPods pod for a release has
-    been observed lagging Maven Central by a point version.
+    and sbokatuk/Net.Agora.iOS's own Directory.Build.props. The numbers needn't match, and often
+    don't: Agora ships Android, iOS and macOS on independent schedules, and either side can be the
+    one ahead. The iOS pod for a release has lagged Maven Central by a point version before; with
+    4.7.0 it is the other way round, on CocoaPods for iOS and macOS but not yet on Maven.
   -->
   <PropertyGroup>
-    <NetAgoraVideoAndroidVersion>4.6.3.5</NetAgoraVideoAndroidVersion>
-    <NetAgoraVideoIosVersion>4.6.2.5</NetAgoraVideoIosVersion>
-    <NetAgoraVoiceAndroidVersion>4.6.3.5</NetAgoraVoiceAndroidVersion>
-    <NetAgoraVoiceIosVersion>4.6.2.5</NetAgoraVoiceIosVersion>
+    <NetAgoraVideoAndroidVersion>4.6.4.1</NetAgoraVideoAndroidVersion>
+    <NetAgoraVideoIosVersion>4.7.0.1</NetAgoraVideoIosVersion>
+    <NetAgoraVoiceAndroidVersion>4.6.4.1</NetAgoraVoiceAndroidVersion>
+    <NetAgoraVoiceIosVersion>4.7.0.1</NetAgoraVoiceIosVersion>
     <!--
-      2.2.6.3 is not optional for anyone who uses Signaling alongside Video or Voice. Every earlier
-      Signaling package ships an `aosl` that the RTC engine cannot necessarily load against, and
-      because all of them land at one path in a consuming app — lib/<abi>/libaosl.so on Android,
-      Frameworks/aosl.framework on Apple — the app keeps a single copy and both products run
-      against it. On Android that surfaced as RtcEngine.Create() returning null on a device, with a
-      build that reported nothing. See each binding repository's signaling-v2.2.6.3 release note.
+      Signaling and the RTC products each ship an `aosl`, and all of them land at one path in a
+      consuming app — lib/<abi>/libaosl.so on Android, Frameworks/aosl.framework on Apple — so the
+      app keeps a single copy and both products run against it. Each Signaling pin is therefore
+      chosen against the RTC pins above, not on its own. Before 2.2.6.3 the copies did not get along:
+      on Android RtcEngine.Create() returned null on a device, with a build that reported nothing.
+      iOS 2.2.6.4 carries the aosl 1.3.16 that the RTC 4.7.0 pods bundle, which RTC 4.7.0 needs and
+      RTC 4.6.2 also loads against. See each binding repository's signaling-v release notes.
     -->
     <NetAgoraSignalingAndroidVersion>2.2.6.3</NetAgoraSignalingAndroidVersion>
-    <NetAgoraSignalingIosVersion>2.2.6.3</NetAgoraSignalingIosVersion>
+    <NetAgoraSignalingIosVersion>2.2.6.4</NetAgoraSignalingIosVersion>
     <!--
       The native macOS (AppKit) bindings, from sbokatuk/Net.Agora.Mac. Only Video, Voice and
       Signaling have a macOS leg — Agora ships no native macOS SDK for Chat/Whiteboard/Fastboard.
       These are a distinct platform from the iOS ones (net*-macos / AppKit, not Mac Catalyst, which
       Agora ships no slice for), on version lines of their own that need not match the iOS ones.
     -->
-    <NetAgoraVideoMacVersion>4.6.2.2</NetAgoraVideoMacVersion>
-    <NetAgoraVoiceMacVersion>4.6.2.2</NetAgoraVoiceMacVersion>
+    <NetAgoraVideoMacVersion>4.7.0.1</NetAgoraVideoMacVersion>
+    <NetAgoraVoiceMacVersion>4.7.0.1</NetAgoraVoiceMacVersion>
     <!--
       Net.Agora.Signaling.Mac takes its aosl out of the macOS RTC archive, so each Signaling.Mac
       release pairs with one Video.Mac/Voice.Mac line. Move the pins as the pair its release note names.
     -->
-    <NetAgoraSignalingMacVersion>2.2.8.3</NetAgoraSignalingMacVersion>
+    <NetAgoraSignalingMacVersion>2.3.0.2</NetAgoraSignalingMacVersion>
     <NetAgoraChatAndroidVersion>1.4.0.2</NetAgoraChatAndroidVersion>
     <!--
-      Ahead of Android's, which is not a mistake: Net.Agora.Chat.iOS 1.4.0.3 moved its AgoraInfra_iOS
-      pin, which has no Android counterpart. The Chat pod itself is 1.4.0 on both.
+      Ahead of Android's, which is not a mistake: Net.Agora.Chat.iOS 1.4.0.3 and 1.4.0.4 each moved
+      its AgoraInfra_iOS pin, which has no Android counterpart. The Chat pod itself is 1.4.0 on both.
     -->
-    <NetAgoraChatIosVersion>1.4.0.3</NetAgoraChatIosVersion>
+    <NetAgoraChatIosVersion>1.4.0.4</NetAgoraChatIosVersion>
     <!--
       The one product whose two platform packages sit on different version lines. netless keeps the
       Android and iOS whiteboard SDKs in separate repositories with separate release cadences, so
       unlike the RTC pair there is no reason to expect them to meet.
     -->
-    <NetAgoraWhiteboardAndroidVersion>2.16.123.2</NetAgoraWhiteboardAndroidVersion>
-    <NetAgoraWhiteboardIosVersion>2.16.137.2</NetAgoraWhiteboardIosVersion>
+    <NetAgoraWhiteboardAndroidVersion>2.16.134.1</NetAgoraWhiteboardAndroidVersion>
+    <NetAgoraWhiteboardIosVersion>2.16.147.1</NetAgoraWhiteboardIosVersion>
     <!--
       Fastboard is a release track of its own. On Android it depends on Net.Agora.Whiteboard.Android
       at a minimum version; on iOS it embeds its own copy of the whiteboard. Either way its pins need
@@ -64,33 +66,35 @@
     <NetAgoraFastboardIosVersion>1.4.6.1</NetAgoraFastboardIosVersion>
 
     <!--
-      Each product's own version tracks its iOS platform package's native version component — the
-      same convention sbokatuk/DatadogNet's facade uses, and for the same reason: it is
-      deliberately the line a reader is more likely to check first, since it is the one that lags.
-      The global VersionPrefix default is the Video line; the Voice projects override it with
-      theirs.
+      Each product's own version is its iOS platform package's native version, plus a revision
+      counter of this repository's — the convention sbokatuk/DatadogNet's facade uses too. That is a
+      fixed rule, chosen so the number never depends on which platform happens to be ahead: it
+      doesn't claim the other platforms run that native version. Android's RTC line is behind iOS's
+      today (4.6.4 against 4.7.0) where it used to be ahead; each release note's package table
+      gives the native version on every platform. The global VersionPrefix default is the Video
+      line; the Voice projects override it with theirs.
     -->
-    <AgoraVideoIosVersion>4.6.2</AgoraVideoIosVersion>
-    <AgoraVoiceIosVersion>4.6.2</AgoraVoiceIosVersion>
-    <AgoraBindingRevision>5</AgoraBindingRevision>
+    <AgoraVideoIosVersion>4.7.0</AgoraVideoIosVersion>
+    <AgoraVoiceIosVersion>4.7.0</AgoraVoiceIosVersion>
+    <AgoraBindingRevision>1</AgoraBindingRevision>
     <!--
       Signaling is a different product with its own native version line (2.2.x) and its own
       revision counter — it did not exist when the RTC products shipped revision 1.
     -->
     <AgoraSignalingIosVersion>2.2.6</AgoraSignalingIosVersion>
-    <AgoraSignalingBindingRevision>3</AgoraSignalingBindingRevision>
+    <AgoraSignalingBindingRevision>4</AgoraSignalingBindingRevision>
     <!--
       Chat is a third product on a third native line — 1.4.x — with its own revision counter, for
       the same reason Signaling has one.
     -->
     <AgoraChatIosVersion>1.4.0</AgoraChatIosVersion>
-    <AgoraChatBindingRevision>3</AgoraChatBindingRevision>
+    <AgoraChatBindingRevision>4</AgoraChatBindingRevision>
     <!--
       Whiteboard tracks its iOS line, like every other product here — which for this one means the
       newer of the two.
     -->
-    <AgoraWhiteboardIosVersion>2.16.137</AgoraWhiteboardIosVersion>
-    <AgoraWhiteboardBindingRevision>2</AgoraWhiteboardBindingRevision>
+    <AgoraWhiteboardIosVersion>2.16.147</AgoraWhiteboardIosVersion>
+    <AgoraWhiteboardBindingRevision>1</AgoraWhiteboardBindingRevision>
     <!--
       Fastboard, likewise: its own native line and its own revision counter.
     -->
