@@ -122,13 +122,17 @@ Pick one RTC product per app: Video already carries the full audio surface, and 
 products' native artifacts collide (same Java classes on Android, same `AgoraRtcKit` framework on
 iOS). Signaling, Chat and Whiteboard coexist with either, and with each other.
 
-> **Signaling alongside Video or Voice needs Signaling 2.2.6.3 or newer** (2.2.8.3 on macOS), which
-> is what this repository pins. Every earlier Signaling package brings an `aosl` — Agora's own
-> infrastructure library — that the RTC engine cannot necessarily load against, and since all of
+> **Signaling alongside Video or Voice: keep the two on versions released together.** Signaling and
+> the RTC products each bring an `aosl` — Agora's own infrastructure library — and since all of
 > them land at one path in the app (`lib/<abi>/libaosl.so`, `Frameworks/aosl.framework`) the app
-> keeps a single copy and both products run against it. On Android that surfaced as
-> `RtcEngine.Create()` returning `null` on a device, from a build that reported nothing. If you
-> reference the platform packages directly rather than through these façades, check that pin.
+> keeps a single copy and both products run against it. A copy the RTC engine can't load against
+> surfaced on Android as `RtcEngine.Create()` returning `null` on a device, from a build that
+> reported nothing. Signaling 2.2.6.4 carries the `aosl` that RTC 4.7.0 needs on iOS and macOS,
+> and still works with 4.6.2. If you reference the platform packages directly rather than through
+> these façades, pair them as their release notes say: `Net.Agora.Signaling.iOS` 2.2.6.4 or newer
+> with `Net.Agora.Video.iOS` or `Net.Agora.Voice.iOS` 4.7.0.1, `Net.Agora.Signaling.Mac` 2.3.0.2 with
+> `Net.Agora.Video.Mac` or `Net.Agora.Voice.Mac` 4.7.0.1, and `Net.Agora.Signaling.Android` 2.2.6.3 or
+> newer on Android.
 
 ## Status
 

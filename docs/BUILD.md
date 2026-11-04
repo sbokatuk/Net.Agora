@@ -200,6 +200,20 @@ matching the name recorded on the nuget.org policy (`nuget.org` in both workflow
 are scoped to a single workflow file, so `pr.yml` and `release.yml` each need their own — and each
 of the three repositories needs its own set of policies, since they publish independently.
 
+## Version numbers
+
+Each product's version is its **iOS** platform package's native version plus a revision counter of
+this repository's: `AgoraVideoIosVersion`, `AgoraSignalingIosVersion` and so on, with
+`AgoraBindingRevision` and its per-product siblings, in
+[`Directory.Build.props`](../Directory.Build.props). The revision starts again at 1 when the native
+version moves.
+
+That is a fixed rule, not a statement that every platform runs that native version. Agora ships
+Android, iOS and macOS on separate schedules, and any of them can be ahead: `Net.Agora.Video`
+4.7.0.1 runs RTC 4.7.0 on iOS and macOS but 4.6.4 on Android, because 4.7.0 hasn't reached Maven.
+Each façade pins its platform packages at exact versions of their own (`NetAgora<Product><Platform>Version`),
+and each release note's package table lists them.
+
 ## Releasing one track
 
 The products here sit on unrelated version lines, so a release names one track, not a repository

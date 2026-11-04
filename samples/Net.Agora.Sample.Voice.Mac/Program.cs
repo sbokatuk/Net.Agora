@@ -26,6 +26,7 @@ public sealed class AppDelegate : NSApplicationDelegate
     private NSWindow _window = null!;
     private NSTextField _appId = null!;
     private NSTextField _channel = null!;
+    private NSTextField _token = null!;
     private NSTextField _status = null!;
     private NSButton _mute = null!;
 
@@ -35,7 +36,7 @@ public sealed class AppDelegate : NSApplicationDelegate
     public override void DidFinishLaunching(NSNotification notification)
     {
         _window = new NSWindow(
-            new CGRect(0, 0, 620, 220),
+            new CGRect(0, 0, 620, 260),
             NSWindowStyle.Titled | NSWindowStyle.Closable | NSWindowStyle.Miniaturizable,
             NSBackingStore.Buffered,
             deferCreation: false)
@@ -45,9 +46,10 @@ public sealed class AppDelegate : NSApplicationDelegate
         _window.Center();
 
         var content = _window.ContentView!;
-        _appId = LabeledField(content, "App ID", 170, "your Agora App ID");
-        _channel = LabeledField(content, "Channel", 130, "channel name");
+        _appId = LabeledField(content, "App ID", 210, "your Agora App ID");
+        _channel = LabeledField(content, "Channel", 170, "channel name");
         _channel.StringValue = "demo";
+        _token = LabeledField(content, "Token", 130, "token (optional — App ID-only auth is testing-only)");
 
         var join = new NSButton { Title = "Join", BezelStyle = NSBezelStyle.Rounded, Frame = new CGRect(20, 80, 90, 30) };
         join.Activated += async (_, _) => await JoinAsync();
@@ -87,7 +89,11 @@ public sealed class AppDelegate : NSApplicationDelegate
             return;
         }
 
-        _client = new AgoraVoiceClient(new AgoraVoiceOptions { AppId = appId });
+        _client = new AgoraVoiceClient(new AgoraVoiceOptions
+        {
+            AppId = appId,
+            Token = string.IsNullOrWhiteSpace(_token.StringValue) ? null : _token.StringValue.Trim(),
+        });
         _client.VolumeIndication += (_, e) => OnMain(() =>
         {
             if (e.Speakers.Count == 0)
