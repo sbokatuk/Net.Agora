@@ -33,7 +33,9 @@ public interface IAgoraWhiteboardClient : IDisposable
 
     /// <summary>
     /// How many undo and redo steps are available, as the board reports them. Drives an
-    /// undo/redo button's enabled state without polling.
+    /// undo/redo button's enabled state without polling. Raised with both counts at 0 as soon as a
+    /// writable join completes, then after each local change. A read-only client has no history
+    /// and isn't told anything until <see cref="SetWritableAsync"/> grants writing.
     /// </summary>
     event EventHandler<AgoraWhiteboardHistoryEventArgs>? HistoryChanged;
 

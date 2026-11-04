@@ -141,6 +141,33 @@ public sealed partial class AgoraWhiteboardClient : IAgoraWhiteboardClient
     private static int[] ToRgbComponents(uint rgb) =>
         [(int)((rgb >> 16) & 0xFF), (int)((rgb >> 8) & 0xFF), (int)(rgb & 0xFF)];
 
+    /// <summary>
+    /// Turns on the room's undo history, which netless calls turning serialization off. Called after
+    /// a writable join and after <see cref="SetWritableAsync"/> grants writing.
+    /// </summary>
+    /// <remarks>
+    /// A room starts with serialization disabled, and in that state it keeps no history: the
+    /// board's JavaScript guards <c>undo</c>, <c>redo</c> and both step counts on it, so
+    /// <see cref="HistoryChanged"/> never fires and <see cref="Undo"/> and <see cref="Redo"/> do
+    /// nothing however much is drawn. Turning it on makes the board report both counts at once,
+    /// which also resets the ones left over from an earlier room.
+    /// <para>
+    /// Only on a writable room: the setter throws in the board's JavaScript on a read-only one and
+    /// leaves the setting alone, so a read-only join gets its history when writing is granted.
+    /// </para>
+    /// <para>
+    /// Upstream warns that every client in the room must be on SDK 2.9.3 or later (Web 2.9.2)
+    /// before this is on, or app clients crash. Both pins here are far past that.
+    /// </para>
+    /// </remarks>
+    private void EnableHistory(bool writable)
+    {
+        if (writable)
+        {
+            EnableHistoryCore();
+        }
+    }
+
     private void RequireRoom()
     {
         if (!IsJoined)

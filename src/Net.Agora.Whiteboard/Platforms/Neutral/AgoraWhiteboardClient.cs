@@ -50,6 +50,8 @@ public sealed partial class AgoraWhiteboardClient
     private void SetWritableCore(bool writable, Action<AgoraWhiteboardException?> complete) =>
         throw NotSupported();
 
+    private void EnableHistoryCore() => throw NotSupported();
+
     private void RefreshViewSizeCore() => throw NotSupported();
 
     private void DisposeCore()
