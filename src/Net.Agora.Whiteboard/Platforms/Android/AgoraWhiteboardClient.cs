@@ -105,6 +105,16 @@ public sealed partial class AgoraWhiteboardClient
         _sdk.JoinRoom(parameters, _listener, new Promise<NativeRoom>(
             room =>
             {
+                // Disposed while the join was in flight. Nothing is left to disconnect this room,
+                // and the hand-over guard already counts the board as let go of, so it would stay
+                // in the room as this user: leave now.
+                if (Volatile.Read(ref _disposed))
+                {
+                    room?.Disconnect();
+                    complete(new AgoraWhiteboardException("the client was disposed before the join completed."));
+                    return;
+                }
+
                 _room = room;
                 EnableHistory(_options.Writable);
                 _boardView.CallFocusView();
@@ -215,11 +225,14 @@ public sealed partial class AgoraWhiteboardClient
     /// <para>
     /// Neither the map nor the flag is public, so this reaches them by reflection. The native
     /// version is pinned exactly, and the device suite rejoins after each of those teardowns. If the
-    /// fields aren't there, nothing is forgotten and the SDK behaves as it always would.
+    /// fields aren't there, nothing is forgotten, the SDK behaves as it always would, and a warning
+    /// goes to logcat under <c>Net.Agora.Whiteboard</c>. The device suite checks the fields exist.
     /// </para>
     /// </remarks>
     private static class BoardHandover
     {
+        private const string LogTag = "Net.Agora.Whiteboard";
+
         private static readonly Fields? Native = Fields.Find();
 
         /// <summary>
@@ -280,9 +293,12 @@ public sealed partial class AgoraWhiteboardClient
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception exception)
             {
                 // Leaves the map as it is; the join goes ahead and the SDK decides.
+                global::Android.Util.Log.Warn(
+                    LogTag,
+                    $"couldn't clear whiteboard-android's board hand-over record, so this join may fail with StaleScope or LeaveTimeout: {exception.GetType().Name}: {exception.Message}");
             }
         }
 
@@ -308,8 +324,11 @@ public sealed partial class AgoraWhiteboardClient
                     fields.Board.Accessible = true;
                     return fields;
                 }
-                catch (Exception)
+                catch (Exception exception)
                 {
+                    global::Android.Util.Log.Warn(
+                        LogTag,
+                        $"whiteboard-android's board hand-over record isn't where 2.16.134 keeps it, so a join after a destroyed or disposed board may fail with StaleScope or LeaveTimeout: {exception.GetType().Name}: {exception.Message}");
                     return null;
                 }
             }
