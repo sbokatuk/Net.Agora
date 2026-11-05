@@ -141,6 +141,13 @@ public static class SmokeTests
         new("disposes cleanly", DisposesCleanly),
         new("live: a stroke is an undo step, and Undo and Redo take it off the board and back", UndoAndRedoChangeTheScene),
         new("live: a read-only join gets its undo history once writing is granted", ReadOnlyJoinGetsHistoryWhenWritable),
+#if ANDROID
+        new("live: the same user joins again with a new client on the same board", RejoinsOnTheSameBoard),
+        new("live: the same user joins again on a new board while the last one is still joined, which takes that one out", RejoinsWhileTheLastBoardIsStillJoined),
+        new("live: the same user joins again on a new board after the last one went off screen", RejoinsAfterTheLastBoardWentOffScreen),
+        new("live: the same user joins again on a new board after the last one disconnected and was destroyed", RejoinsAfterTheLastBoardWasDestroyedOnceDisconnected),
+        new("live: the same user joins again on a new board after the last one was destroyed at once", RejoinsAfterTheLastBoardWasDestroyed),
+#endif
 #elif AGORA_CHAT
         new("a missing App ID, user ID or token is rejected before any native call", MissingAppIdIsRejected),
         new("constructs the client", ConstructsTheClient),
@@ -552,6 +559,195 @@ public static class SmokeTests
         await live.WaitForSceneAsync(scene => scene == empty, "Undo to take the stroke off the scene");
     });
 
+#if ANDROID
+    // whiteboard-android 2.16.134 remembers, for the whole process, which board last joined each App
+    // Identifier, room and user. A join for that user on another board first asks the old board to
+    // leave. Before 2.16.147.3, a board that couldn't answer made that join fail, and every later one
+    // for the same user: a destroyed view with StaleScope, and a view taken off screen while its room
+    // was still disconnecting with LeaveTimeout. Each check below is one way an app ends up with a
+    // second board for the same user, and each has a user id of its own, so a failure in one can't
+    // spread to the next.
+
+    private static Task RejoinsOnTheSameBoard() => RejoinAsync("same-board", FirstBoard.Reused);
+
+    private static Task RejoinsWhileTheLastBoardIsStillJoined() => RejoinAsync("still-joined", FirstBoard.StillJoined);
+
+    private static Task RejoinsAfterTheLastBoardWentOffScreen() => RejoinAsync("off-screen", FirstBoard.OffScreen);
+
+    private static Task RejoinsAfterTheLastBoardWasDestroyedOnceDisconnected() =>
+        RejoinAsync("destroyed-later", FirstBoard.DestroyedOnceDisconnected);
+
+    private static Task RejoinsAfterTheLastBoardWasDestroyed() => RejoinAsync("destroyed", FirstBoard.Destroyed);
+
+    /// <summary>What happens to the first board before the same user joins again.</summary>
+    private enum FirstBoard
+    {
+        /// <summary>Its client disposed, and the second client made on the same view.</summary>
+        Reused,
+
+        /// <summary>
+        /// Its client still joined, on screen next to the second board. The client hasn't let go, so
+        /// the SDK's own hand-over takes it out of the room.
+        /// </summary>
+        StillJoined,
+
+        /// <summary>
+        /// Its client disposed and the view taken straight off screen, then left alone, as when an app
+        /// swaps the board out of its layout.
+        /// </summary>
+        OffScreen,
+
+        /// <summary>Disconnected, and its view destroyed once the room reported it.</summary>
+        DestroyedOnceDisconnected,
+
+        /// <summary>Its view destroyed straight after Dispose, as an activity's OnDestroy would.</summary>
+        Destroyed,
+    }
+
+    private static async Task RejoinAsync(string user, FirstBoard first)
+    {
+        var options = LiveBoard.Options($"{UserId}-rejoin-{user}", writable: true);
+        var activity = (Android.App.Activity)(AndroidContext
+            ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set."));
+        var views = new List<global::Agora.Whiteboard.WhiteboardView>();
+        var destroyed = new HashSet<global::Agora.Whiteboard.WhiteboardView>();
+
+        global::Agora.Whiteboard.WhiteboardView NewBoard()
+        {
+            var board = new global::Agora.Whiteboard.WhiteboardView(activity);
+            views.Add(board);
+            return board;
+        }
+
+        var view = NewBoard();
+        activity.SetContentView(view);
+        var client = new AgoraClient(options, view, activity);
+
+        try
+        {
+            await client.JoinAsync();
+            Report($"joined on the first board as {options.Uid}");
+
+            if (first == FirstBoard.DestroyedOnceDisconnected)
+            {
+                await DisconnectAndWaitAsync(client);
+            }
+
+            var old = view;
+            var oldClient = client;
+            var handedOver = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            if (first == FirstBoard.StillJoined)
+            {
+                client.PhaseChanged += (_, e) =>
+                {
+                    if (e.Phase == AgoraWhiteboardPhase.Disconnected)
+                    {
+                        handedOver.TrySetResult();
+                    }
+                };
+            }
+            else
+            {
+                client.Dispose();
+            }
+
+            switch (first)
+            {
+                case FirstBoard.StillJoined:
+                    var layout = new Android.Widget.LinearLayout(activity) { Orientation = Android.Widget.Orientation.Vertical };
+                    activity.SetContentView(layout);
+                    layout.AddView(old, new Android.Widget.LinearLayout.LayoutParams(-1, 0, 1));
+                    view = NewBoard();
+                    layout.AddView(view, new Android.Widget.LinearLayout.LayoutParams(-1, 0, 1));
+                    break;
+
+                case FirstBoard.OffScreen:
+                    view = NewBoard();
+                    activity.SetContentView(view);
+                    Report($"the first board's room, off screen: {await RoomPhaseAsync(old)}");
+                    break;
+
+                case FirstBoard.Destroyed or FirstBoard.DestroyedOnceDisconnected:
+                    view = NewBoard();
+                    activity.SetContentView(view);
+                    old.Destroy();
+                    destroyed.Add(old);
+                    break;
+            }
+
+            client = new AgoraClient(options, view, activity);
+            var started = DateTime.UtcNow;
+
+            try
+            {
+                await client.JoinAsync();
+                Report($"joined again after {(DateTime.UtcNow - started).TotalSeconds:0.0}s");
+
+                if (first == FirstBoard.StillJoined)
+                {
+                    Assert(
+                        await Task.WhenAny(handedOver.Task, Task.Delay(BoardTimeout)) == handedOver.Task,
+                        "the first client, still joined, was never taken out of the room.");
+                    Report("the first client was taken out of the room");
+                }
+            }
+            finally
+            {
+                oldClient.Dispose();
+            }
+        }
+        finally
+        {
+            client.Dispose();
+            activity.SetContentView(new Android.Views.View(activity));
+
+            foreach (var board in views.Where(board => !destroyed.Contains(board)))
+            {
+                board.Destroy();
+            }
+        }
+    }
+
+    /// <summary>The phase of the room in a board's page, as the page itself reports it.</summary>
+    private static async Task<string> RoomPhaseAsync(global::Agora.Whiteboard.WhiteboardView board)
+    {
+        var phase = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        board.EvaluateJavascript(
+            "(function () { return window.room ? String(window.room.phase) : 'no room object in the page'; })()",
+            new JavascriptResult(json => phase.TrySetResult(json)));
+
+        return await Task.WhenAny(phase.Task, Task.Delay(BoardTimeout)) == phase.Task
+            ? phase.Task.Result ?? "nothing"
+            : "no answer from the page";
+    }
+
+    private static async Task DisconnectAndWaitAsync(AgoraClient client)
+    {
+        var left = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnPhase(object? sender, AgoraWhiteboardPhaseEventArgs e)
+        {
+            if (e.Phase == AgoraWhiteboardPhase.Disconnected)
+            {
+                left.TrySetResult();
+            }
+        }
+
+        client.PhaseChanged += OnPhase;
+        var started = DateTime.UtcNow;
+        client.Disconnect();
+        var disconnected = await Task.WhenAny(left.Task, Task.Delay(BoardTimeout)) == left.Task;
+        client.PhaseChanged -= OnPhase;
+
+        if (!disconnected)
+        {
+            throw new InvalidOperationException("the room never reported the disconnect.");
+        }
+
+        Report($"disconnected after {(DateTime.UtcNow - started).TotalSeconds:0.0}s");
+    }
+#endif
+
     /// <summary>
     /// A client joined to the live room, with its board view on screen. The board is a web page, so
     /// a stroke is drawn as touch events dispatched in that page and the scene is read from the
@@ -624,33 +820,10 @@ public static class SmokeTests
 
         private static LiveBoard Create(bool writable)
         {
-            var appIdentifier = Setting("AGORA_WHITEBOARD_APP_IDENTIFIER");
-            var roomUuid = Setting("AGORA_WHITEBOARD_ROOM_UUID");
-            var roomToken = Setting("AGORA_WHITEBOARD_ROOM_TOKEN");
-
-            if (string.IsNullOrEmpty(appIdentifier) || string.IsNullOrEmpty(roomUuid) || string.IsNullOrEmpty(roomToken))
-            {
-                throw new SmokeTestSkippedException(
-                    "no live room. Give the runner script AGORA_WHITEBOARD_APP_IDENTIFIER, AGORA_WHITEBOARD_ROOM_UUID, " +
-                    "AGORA_WHITEBOARD_ROOM_TOKEN and, for a room outside China, AGORA_WHITEBOARD_REGION.");
-            }
-
-            var options = new AgoraClientOptions
-            {
-                AppIdentifier = appIdentifier,
-                RoomUuid = roomUuid,
-                RoomToken = roomToken,
-                Region = Setting("AGORA_WHITEBOARD_REGION") is { Length: > 0 } region ? region : null,
-
-                // A user id per check. On Android, whiteboard 2.16.134 hands a session for the same
-                // App Identifier, room and user from one board to the next by asking the old board
-                // to leave first. If that board's page is already gone, the new join fails with
-                // StaleScope, even when the old board finished leaving before its page went. So
-                // each check has its own user id, and one check's teardown can't stop the next join.
-                Uid = $"{UserId}-{(writable ? "writer" : "reader")}",
-                Writable = writable,
-                Timeout = JoinTimeout,
-            };
+            // A user id per check. On Android, whiteboard 2.16.134 hands a session for the same App
+            // Identifier, room and user from one board to the next, so each check gets its own, and
+            // only the rejoin checks above test that hand-over.
+            var options = Options($"{UserId}-{(writable ? "writer" : "reader")}", writable);
 
 #if ANDROID
             var context = AndroidContext ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set.");
@@ -669,6 +842,32 @@ public static class SmokeTests
 #endif
 
             return new LiveBoard(client, view);
+        }
+
+        /// <summary>The live room's options for <paramref name="uid"/>, or a skip when this run names no room.</summary>
+        public static AgoraClientOptions Options(string uid, bool writable)
+        {
+            var appIdentifier = Setting("AGORA_WHITEBOARD_APP_IDENTIFIER");
+            var roomUuid = Setting("AGORA_WHITEBOARD_ROOM_UUID");
+            var roomToken = Setting("AGORA_WHITEBOARD_ROOM_TOKEN");
+
+            if (string.IsNullOrEmpty(appIdentifier) || string.IsNullOrEmpty(roomUuid) || string.IsNullOrEmpty(roomToken))
+            {
+                throw new SmokeTestSkippedException(
+                    "no live room. Give the runner script AGORA_WHITEBOARD_APP_IDENTIFIER, AGORA_WHITEBOARD_ROOM_UUID, " +
+                    "AGORA_WHITEBOARD_ROOM_TOKEN and, for a room outside China, AGORA_WHITEBOARD_REGION.");
+            }
+
+            return new AgoraClientOptions
+            {
+                AppIdentifier = appIdentifier,
+                RoomUuid = roomUuid,
+                RoomToken = roomToken,
+                Region = Setting("AGORA_WHITEBOARD_REGION") is { Length: > 0 } region ? region : null,
+                Uid = uid,
+                Writable = writable,
+                Timeout = JoinTimeout,
+            };
         }
 
         private async Task JoinAsync(bool writable)
@@ -922,9 +1121,9 @@ public static class SmokeTests
 
         private async Task LeaveAsync()
         {
-            // Lets the room finish leaving before its page goes, as an app would by keeping the
-            // view around. On Android that isn't enough for the same user to join again: see the
-            // Uid above.
+            // Lets the room finish leaving before its page goes, so the check's last phase changes
+            // reach the log. A later join for the same user doesn't depend on it: see the rejoin
+            // checks.
             if (Client.IsJoined)
             {
                 var left = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
