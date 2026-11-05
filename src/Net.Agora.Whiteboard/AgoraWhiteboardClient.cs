@@ -9,6 +9,13 @@ public sealed partial class AgoraWhiteboardClient : IAgoraWhiteboardClient
 {
     private readonly AgoraWhiteboardOptions _options;
 
+    /// <summary>
+    /// Taken by <see cref="Dispose"/> to mark the client disposed, and by whatever must see that
+    /// mark and act on it in one step: the end of <see cref="JoinAsync"/> here, and on Android the
+    /// join callback storing its room. Dispose can be called from any thread.
+    /// </summary>
+    private readonly object _gate = new();
+
     private bool _disposed;
     private int _undoSteps;
     private int _redoSteps;
@@ -38,7 +45,14 @@ public sealed partial class AgoraWhiteboardClient : IAgoraWhiteboardClient
 
         await AwaitOperation(JoinCore, "join the room", cancellationToken).ConfigureAwait(false);
 
-        IsJoined = true;
+        // A Dispose that ran after the join completed, but before this, has already left the room.
+        lock (_gate)
+        {
+            if (!_disposed)
+            {
+                IsJoined = true;
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -105,13 +119,17 @@ public sealed partial class AgoraWhiteboardClient : IAgoraWhiteboardClient
     /// <inheritdoc />
     public void Dispose()
     {
-        if (_disposed)
+        lock (_gate)
         {
-            return;
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            IsJoined = false;
         }
 
-        _disposed = true;
-        IsJoined = false;
         DisposeCore();
     }
 
