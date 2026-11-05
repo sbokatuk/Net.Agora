@@ -498,24 +498,26 @@ public static class SmokeTests
     };
 
     // The live checks below join a real room, so they need a registered App Identifier and a room
-    // token, which CI doesn't have. Without them each check is skipped, not failed. They draw a
-    // stroke, then undo and redo it, then undo it once more, so a room is left with the scene it
-    // had. Even so, use a room nobody else is drawing in: the scene is compared as a whole.
+    // token, which CI doesn't have. Without them each check is skipped, not failed.
+    //
+    // Each check draws in a new scene of its own, so the room's content can't hide a stroke: a
+    // stroke drawn inside what's already there would leave the scene's bounds as they were. The
+    // teardown takes the board back to the scene it found and removes the check's scene, whether
+    // the check passed or not. The current scene is the same for everyone in a room, though, so
+    // while a check runs anyone else in the room sees the empty test scene: use a room nobody else
+    // is using, and run one suite at a time in it.
 
     /// <summary>How long the board gets to report a change. Generous for the same reason as the join.</summary>
     private static readonly TimeSpan BoardTimeout = TimeSpan.FromSeconds(15);
 
-    private static async Task UndoAndRedoChangeTheScene()
+    private static Task UndoAndRedoChangeTheScene() => LiveBoard.RunAsync(writable: true, async live =>
     {
-        await using var live = await LiveBoard.JoinAsync(writable: true);
-
         // The fix under test: a room keeps no history until serialization is turned on, and turning
         // it on is what makes the board report both counts at once. Before it, nothing was raised
         // here at all, however much was drawn.
         await live.History.WaitForAsync(h => h == (0, 0), "a writable join to report an empty history");
 
-        var empty = await live.SceneAsync();
-        Report($"scene before the stroke: {empty}");
+        var empty = await live.MoveToNewSceneAsync();
         await live.DrawStrokeAsync();
 
         var drawn = await live.WaitForSceneAsync(scene => scene != empty, "the stroke to reach the scene");
@@ -528,16 +530,10 @@ public static class SmokeTests
         live.Client.Redo();
         await live.History.WaitForAsync(h => h == (1, 0), "Redo to make the stroke an undo step again");
         await live.WaitForSceneAsync(scene => scene == drawn, "Redo to put the same stroke back");
+    });
 
-        // Leaves the room's scene as it was found.
-        live.Client.Undo();
-        await live.WaitForSceneAsync(scene => scene == empty, "the last Undo to clear the stroke again");
-    }
-
-    private static async Task ReadOnlyJoinGetsHistoryWhenWritable()
+    private static Task ReadOnlyJoinGetsHistoryWhenWritable() => LiveBoard.RunAsync(writable: false, async live =>
     {
-        await using var live = await LiveBoard.JoinAsync(writable: false);
-
         // A read-only room refuses to turn serialization on, so the client doesn't ask: nothing is
         // reported, and Undo is a harmless no-op rather than an error.
         await Task.Delay(TimeSpan.FromSeconds(3));
@@ -547,16 +543,14 @@ public static class SmokeTests
         await live.Client.SetWritableAsync(true);
         await live.History.WaitForAsync(h => h == (0, 0), "granting writing to report an empty history");
 
-        var empty = await live.SceneAsync();
-        Report($"scene before the stroke: {empty}");
+        var empty = await live.MoveToNewSceneAsync();
         await live.DrawStrokeAsync();
         await live.WaitForSceneAsync(scene => scene != empty, "the stroke to reach the scene");
         await live.History.WaitForAsync(h => h == (1, 0), "the stroke to be one undo step");
 
-        // Leaves the room's scene as it was found.
         live.Client.Undo();
         await live.WaitForSceneAsync(scene => scene == empty, "Undo to take the stroke off the scene");
-    }
+    });
 
     /// <summary>
     /// A client joined to the live room, with its board view on screen. The board is a web page, so
@@ -564,8 +558,14 @@ public static class SmokeTests
     /// page's own room object: neither needs touch injection, which the iOS simulator can't do from
     /// a test, and both behave the same on the two platforms.
     /// </summary>
-    private sealed class LiveBoard : IAsyncDisposable
+    private sealed class LiveBoard
     {
+        /// <summary>Where every check's scene goes; each check adds a directory of its own under it.</summary>
+        private const string TestScenes = "/net-agora-device-tests";
+
+        /// <summary>The check's own scene directory, once one has been made. The teardown removes it.</summary>
+        private string? _sceneDirectory;
+
 #if ANDROID
         private readonly global::Agora.Whiteboard.WhiteboardView _view;
 #else
@@ -589,7 +589,40 @@ public static class SmokeTests
 
         public HistoryLog History { get; }
 
-        public static async Task<LiveBoard> JoinAsync(bool writable)
+        /// <summary>
+        /// Joins the live room, runs <paramref name="check"/> and tears down, whatever the check did.
+        /// When the check fails, its failure is the one reported and a teardown failure on top of it
+        /// is only logged. When the check passes, a teardown that couldn't clean up fails it.
+        /// </summary>
+        public static async Task RunAsync(bool writable, Func<LiveBoard, Task> check)
+        {
+            var live = Create(writable);
+            Exception? failure = null;
+
+            try
+            {
+                await live.JoinAsync(writable);
+                await check(live);
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+                throw;
+            }
+            finally
+            {
+                try
+                {
+                    await live.TearDownAsync();
+                }
+                catch (Exception teardown) when (failure is not null)
+                {
+                    Report($"the teardown failed as well: {teardown.GetType().Name}: {teardown.Message}");
+                }
+            }
+        }
+
+        private static LiveBoard Create(bool writable)
         {
             var appIdentifier = Setting("AGORA_WHITEBOARD_APP_IDENTIFIER");
             var roomUuid = Setting("AGORA_WHITEBOARD_ROOM_UUID");
@@ -634,36 +667,62 @@ public static class SmokeTests
             root.AddSubview(view);
 #endif
 
-            var board = new LiveBoard(client, view);
+            return new LiveBoard(client, view);
+        }
 
-            try
+        private async Task JoinAsync(bool writable)
+        {
+            await Client.JoinAsync();
+
+            // Pencil, explicitly, so the stroke doesn't depend on the room's last tool.
+            if (writable)
             {
-                await client.JoinAsync();
-
-                // Pencil, explicitly, so the stroke doesn't depend on the room's last tool.
-                if (writable)
-                {
-                    client.SetTool(AgoraWhiteboardTool.Pencil, color: 0x1E88E5, strokeWidth: 8);
-                }
+                Client.SetTool(AgoraWhiteboardTool.Pencil, color: 0x1E88E5, strokeWidth: 8);
             }
-            catch
-            {
-                await board.DisposeAsync();
-                throw;
-            }
-
-            return board;
         }
 
         /// <summary>
-        /// The bounding box of everything on the current scene, as the page's room reports it. Any
-        /// stroke changes it, and taking the stroke away puts it back.
+        /// Makes a new scene for this check and moves the board to it, so a stroke can't be lost in
+        /// what the room already holds. Needs writing. Returns the new scene's bounds, which are
+        /// empty.
+        /// </summary>
+        public async Task<string> MoveToNewSceneAsync()
+        {
+            // Set first, so the teardown removes the directory even if the move fails halfway.
+            var directory = _sceneDirectory = $"{TestScenes}/{Guid.NewGuid():N}";
+            var scene = $"{directory}/board";
+
+            // The scene to go back to is kept in the page, so no path has to be quoted into a script.
+            var moved = await EvaluateAsync(InRoom(
+                "window.__netAgoraReturnPath = room.state.sceneState.scenePath; " +
+                "var bounds = JSON.stringify(room.getBoundingRect(window.__netAgoraReturnPath)); " +
+                $"room.putScenes('{directory}', [{{ name: 'board' }}]); " +
+                $"room.setScenePath('{scene}'); " +
+                "return 'left ' + window.__netAgoraReturnPath + ' with bounds ' + bounds;"));
+
+            if (moved is null || !moved.StartsWith("left ", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"couldn't make a scene for the check: {moved ?? "the page returned nothing"}.");
+            }
+
+            Report(moved);
+            await WaitForPageAsync(InRoom("return room.state.sceneState.scenePath;"), scene, $"the board to move to {scene}");
+
+            var empty = await SceneAsync();
+            Assert(
+                await EvaluateAsync(InRoom("var r = room.getBoundingRect(room.state.sceneState.scenePath); return String(r.width === 0 && r.height === 0);")) == "true",
+                $"the new scene {scene} isn't empty: its bounds are {empty}.");
+            Report($"drawing in {scene}, bounds {empty}");
+            return empty;
+        }
+
+        /// <summary>
+        /// The bounding box of everything on the current scene, as the page's room reports it. In
+        /// an empty scene, any stroke changes it and taking the stroke away puts it back.
         /// </summary>
         public async Task<string> SceneAsync()
         {
-            var scene = await EvaluateAsync(
-                "(function () { var room = window.room; if (!room) { return 'no room object in the page'; } " +
-                "return JSON.stringify(room.getBoundingRect(room.state.sceneState.scenePath)); })()");
+            var scene = await EvaluateAsync(InRoom("return JSON.stringify(room.getBoundingRect(room.state.sceneState.scenePath));"));
 
             if (scene is null || !scene.StartsWith('{'))
             {
@@ -692,6 +751,32 @@ public static class SmokeTests
             Report($"scene: {scene}");
             return scene;
         }
+
+        /// <summary>Polls a script in the board page until it returns <paramref name="expected"/>.</summary>
+        private async Task WaitForPageAsync(string script, string expected, string what)
+        {
+            var deadline = DateTime.UtcNow + BoardTimeout;
+            string? value;
+
+            while ((value = await EvaluateAsync(script)) != expected)
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new InvalidOperationException($"timed out waiting for {what}: the page said {value ?? "nothing"}.");
+                }
+
+                await Task.Delay(100);
+            }
+        }
+
+        /// <summary>
+        /// Wraps <paramref name="body"/> so it runs against the page's room and returns a string
+        /// either way: a script that throws comes back as its error rather than as nothing.
+        /// </summary>
+        private static string InRoom(string body) =>
+            "(function () { try { var room = window.room; if (!room) { return 'no room object in the page'; } " +
+            body +
+            " } catch (e) { return 'the page threw: ' + e; } })()";
 
         /// <summary>
         /// Draws one diagonal stroke across the middle of the board: a finger's worth of touch
@@ -776,7 +861,65 @@ public static class SmokeTests
             return result.Task;
         }
 
-        public async ValueTask DisposeAsync()
+        /// <summary>
+        /// Removes the check's scene, leaves the room and takes the board off screen. It always
+        /// leaves and always takes the board off, even when the scene couldn't be removed; that
+        /// failure is thrown at the end.
+        /// </summary>
+        private async Task TearDownAsync()
+        {
+            Exception? sceneLeftBehind = null;
+
+            if (_sceneDirectory is { } directory)
+            {
+                try
+                {
+                    await RemoveSceneAsync(directory);
+                }
+                catch (Exception exception)
+                {
+                    sceneLeftBehind = new InvalidOperationException(
+                        $"the check's scene {directory} may still be in the room: {exception.Message}", exception);
+                }
+            }
+
+            await LeaveAsync();
+
+            if (sceneLeftBehind is not null)
+            {
+                throw sceneLeftBehind;
+            }
+        }
+
+        /// <summary>
+        /// Takes the board back to the scene it was on before the check and removes the check's
+        /// scene directory, with whatever was drawn in it. Doesn't depend on Undo working.
+        /// </summary>
+        private async Task RemoveSceneAsync(string directory)
+        {
+            if (!Client.IsJoined)
+            {
+                throw new InvalidOperationException("the client had already left the room.");
+            }
+
+            var removed = await EvaluateAsync(InRoom(
+                "var back = window.__netAgoraReturnPath; " +
+                $"if (back && room.state.sceneState.scenePath.indexOf('{directory}/') === 0) {{ room.setScenePath(back); }} " +
+                $"room.removeScenes('{directory}'); " +
+                "return 'removed';"));
+
+            if (removed != "removed")
+            {
+                throw new InvalidOperationException(removed ?? "the page returned nothing.");
+            }
+
+            await WaitForPageAsync(InRoom($"return room.scenePathType('{directory}');"), "none", $"{directory} to be removed");
+            Report(await EvaluateAsync(InRoom(
+                $"return 'removed {directory}; back on ' + room.state.sceneState.scenePath + ' with bounds ' + " +
+                "JSON.stringify(room.getBoundingRect(room.state.sceneState.scenePath));")) ?? $"removed {directory}");
+        }
+
+        private async Task LeaveAsync()
         {
             // Lets the room finish leaving before its page goes, as an app would by keeping the
             // view around. See the Uid above for what a page torn down mid-leave does on Android.
