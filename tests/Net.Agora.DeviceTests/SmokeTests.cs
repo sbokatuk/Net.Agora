@@ -146,8 +146,10 @@ public static class SmokeTests
         new("live: a read-only join gets its undo history once writing is granted", ReadOnlyJoinGetsHistoryWhenWritable),
 #if ANDROID
         new("live: a join that completes after Dispose leaves the room", JoinThatCompletesAfterDisposeLeaves),
+        new("live: a join that completes after Dispose on another thread leaves the room", JoinThatCompletesAfterDisposeOnAnotherThreadLeaves),
         new("live: the same user joins again with a new client on the same board", RejoinsOnTheSameBoard),
         new("live: the same user joins again on a new board while the last one is still joined, which takes that one out", RejoinsWhileTheLastBoardIsStillJoined),
+        new("live: the same user joins again on a new board after an earlier client on the last one was disposed, which takes the later one out", RejoinsAfterAnEarlierClientOnTheLastBoardWasDisposed),
         new("live: the same user joins again on a new board after the last one went off screen", RejoinsAfterTheLastBoardWentOffScreen),
         new("live: the same user joins again on a new board after the last one disconnected and was destroyed", RejoinsAfterTheLastBoardWasDestroyedOnceDisconnected),
         new("live: the same user joins again on a new board after the last one was destroyed at once", RejoinsAfterTheLastBoardWasDestroyed),
@@ -598,24 +600,51 @@ public static class SmokeTests
             $"LifecycleHost.raw is a {raw.Type.Name}, which can't hold the board view.");
     }
 
+    private static Task JoinThatCompletesAfterDisposeLeaves() => JoinThatCompletesAfterDisposeLeavesAsync(fromAnotherThread: false);
+
+    private static Task JoinThatCompletesAfterDisposeOnAnotherThreadLeaves() => JoinThatCompletesAfterDisposeLeavesAsync(fromAnotherThread: true);
+
     /// <summary>
     /// A join still in flight when its client is disposed. Disposing counts the board as let go of,
     /// so a later join for the same user skips the SDK's hand-over: the room this join makes has to
     /// leave by itself, or it stays in the room as that user.
     /// </summary>
-    private static async Task JoinThatCompletesAfterDisposeLeaves()
+    /// <remarks>
+    /// Only the client raises the disposal error, and only once the SDK has handed it the room, so
+    /// that error is what shows the join got that far. The room's own Disconnected then shows it
+    /// left. A Dispose that lands while the client is storing the room can't be timed from here:
+    /// the client checks and stores under the lock Dispose takes, so it's one order or the other.
+    /// </remarks>
+    private static async Task JoinThatCompletesAfterDisposeLeavesAsync(bool fromAnotherThread)
     {
-        var options = LiveBoard.Options($"{UserId}-late-join", writable: true);
+        var options = LiveBoard.Options($"{UserId}-late-join{(fromAnotherThread ? "-off-main" : "")}", writable: true);
         var activity = (Android.App.Activity)(AndroidContext
             ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set."));
         var board = new global::Agora.Whiteboard.WhiteboardView(activity);
         activity.SetContentView(board);
         var client = new AgoraClient(options, board, activity);
 
+        var left = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.PhaseChanged += (_, e) =>
+        {
+            if (e.Phase == AgoraWhiteboardPhase.Disconnected)
+            {
+                left.TrySetResult();
+            }
+        };
+
         try
         {
             var join = client.JoinAsync();
-            client.Dispose();
+
+            if (fromAnotherThread)
+            {
+                await Task.Run(client.Dispose);
+            }
+            else
+            {
+                client.Dispose();
+            }
 
             AgoraClientException? error = null;
             try
@@ -628,20 +657,15 @@ public static class SmokeTests
                 Report($"the join failed: {exception.Message}");
             }
 
-            var deadline = DateTime.UtcNow + BoardTimeout;
-            string phase;
-            while ((phase = (await RoomPhaseAsync(board)).Trim('"')) is not ("disconnected" or "no room object in the page"))
-            {
-                if (DateTime.UtcNow > deadline)
-                {
-                    throw new InvalidOperationException($"the room the late join made is still {phase}.");
-                }
-
-                await Task.Delay(200);
-            }
-
-            Report($"the late join's room: {phase}");
             Assert(error is not null, "a join that completed after Dispose was reported as joined.");
+            Assert(
+                error!.Message.Contains("disposed before the join completed", StringComparison.Ordinal),
+                $"the join failed before the SDK handed over a room, so the late join wasn't tested: {error.Message}");
+
+            var leftInTime = await Task.WhenAny(left.Task, Task.Delay(BoardTimeout)) == left.Task;
+            var phase = await RoomPhaseAsync(board);
+            Assert(leftInTime, $"the room the late join made never reported Disconnected; the page says it's {phase}.");
+            Report($"the late join's room left; the page says it's {phase}");
         }
         finally
         {
@@ -654,6 +678,9 @@ public static class SmokeTests
     private static Task RejoinsOnTheSameBoard() => RejoinAsync("same-board", FirstBoard.Reused);
 
     private static Task RejoinsWhileTheLastBoardIsStillJoined() => RejoinAsync("still-joined", FirstBoard.StillJoined);
+
+    private static Task RejoinsAfterAnEarlierClientOnTheLastBoardWasDisposed() =>
+        RejoinAsync("reused-then-disposed", FirstBoard.ReusedBeforeTheEarlierClientWasDisposed);
 
     private static Task RejoinsAfterTheLastBoardWentOffScreen() => RejoinAsync("off-screen", FirstBoard.OffScreen);
 
@@ -675,6 +702,14 @@ public static class SmokeTests
         StillJoined,
 
         /// <summary>
+        /// Its client disconnected, another client joined on the same view, and only then the first
+        /// client disposed. The first client no longer holds the view, so its Dispose mustn't let go
+        /// of it: the later client is still joined, on screen next to the second board, and the
+        /// SDK's own hand-over takes it out of the room.
+        /// </summary>
+        ReusedBeforeTheEarlierClientWasDisposed,
+
+        /// <summary>
         /// Its client disposed and the view taken straight off screen, then left alone, as when an app
         /// swaps the board out of its layout.
         /// </summary>
@@ -694,6 +729,7 @@ public static class SmokeTests
             ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set."));
         var views = new List<global::Agora.Whiteboard.WhiteboardView>();
         var destroyed = new HashSet<global::Agora.Whiteboard.WhiteboardView>();
+        var clients = new List<AgoraClient>();
 
         global::Agora.Whiteboard.WhiteboardView NewBoard()
         {
@@ -702,25 +738,43 @@ public static class SmokeTests
             return board;
         }
 
+        AgoraClient NewClient(global::Agora.Whiteboard.WhiteboardView board)
+        {
+            var client = new AgoraClient(options, board, activity);
+            clients.Add(client);
+            return client;
+        }
+
         var view = NewBoard();
         activity.SetContentView(view);
-        var client = new AgoraClient(options, view, activity);
+        var client = NewClient(view);
 
         try
         {
             await client.JoinAsync();
             Report($"joined on the first board as {options.Uid}");
 
-            if (first == FirstBoard.DestroyedOnceDisconnected)
+            if (first is FirstBoard.DestroyedOnceDisconnected or FirstBoard.ReusedBeforeTheEarlierClientWasDisposed)
             {
                 await DisconnectAndWaitAsync(client);
             }
 
+            if (first == FirstBoard.ReusedBeforeTheEarlierClientWasDisposed)
+            {
+                var earlier = client;
+                client = NewClient(view);
+                await client.JoinAsync();
+                Report("joined again on the first board with another client");
+                earlier.Dispose();
+            }
+
+            // Whether the first board still has a client in the room when the same user joins on
+            // the second, for the SDK's hand-over to take out.
+            var stillJoined = first is FirstBoard.StillJoined or FirstBoard.ReusedBeforeTheEarlierClientWasDisposed;
             var old = view;
-            var oldClient = client;
             var handedOver = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            if (first == FirstBoard.StillJoined)
+            if (stillJoined)
             {
                 client.PhaseChanged += (_, e) =>
                 {
@@ -737,7 +791,7 @@ public static class SmokeTests
 
             switch (first)
             {
-                case FirstBoard.StillJoined:
+                case FirstBoard.StillJoined or FirstBoard.ReusedBeforeTheEarlierClientWasDisposed:
                     var layout = new Android.Widget.LinearLayout(activity) { Orientation = Android.Widget.Orientation.Vertical };
                     activity.SetContentView(layout);
                     layout.AddView(old, new Android.Widget.LinearLayout.LayoutParams(-1, 0, 1));
@@ -759,30 +813,26 @@ public static class SmokeTests
                     break;
             }
 
-            client = new AgoraClient(options, view, activity);
+            client = NewClient(view);
             var started = DateTime.UtcNow;
+            await client.JoinAsync();
+            Report($"joined again after {(DateTime.UtcNow - started).TotalSeconds:0.0}s");
 
-            try
+            if (stillJoined)
             {
-                await client.JoinAsync();
-                Report($"joined again after {(DateTime.UtcNow - started).TotalSeconds:0.0}s");
-
-                if (first == FirstBoard.StillJoined)
-                {
-                    Assert(
-                        await Task.WhenAny(handedOver.Task, Task.Delay(BoardTimeout)) == handedOver.Task,
-                        "the first client, still joined, was never taken out of the room.");
-                    Report("the first client was taken out of the room");
-                }
-            }
-            finally
-            {
-                oldClient.Dispose();
+                Assert(
+                    await Task.WhenAny(handedOver.Task, Task.Delay(BoardTimeout)) == handedOver.Task,
+                    "the first board's client, still joined, was never taken out of the room.");
+                Report("the first board's client was taken out of the room");
             }
         }
         finally
         {
-            client.Dispose();
+            foreach (var each in clients)
+            {
+                each.Dispose();
+            }
+
             activity.SetContentView(new Android.Views.View(activity));
 
             foreach (var board in views.Where(board => !destroyed.Contains(board)))
