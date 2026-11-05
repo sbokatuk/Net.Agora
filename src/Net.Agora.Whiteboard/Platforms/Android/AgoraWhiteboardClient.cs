@@ -16,6 +16,13 @@ public sealed partial class AgoraWhiteboardClient
     private readonly WhiteboardView _boardView;
     private readonly RoomListener _listener;
 
+    /// <summary>
+    /// This client's mark on its board view, for <see cref="BoardHandover"/>: set when it joins on
+    /// the view, so a client that joined there before it can't let go of the view on its behalf.
+    /// </summary>
+    private readonly BoardHandover.Mark _claim = new();
+
+    /// <summary>Stored and taken under <c>_gate</c>, the lock <see cref="Dispose"/> marks the client disposed under.</summary>
     private NativeRoom? _room;
 
     /// <summary>
@@ -91,7 +98,7 @@ public sealed partial class AgoraWhiteboardClient
         // This board is in use again. The rest runs ahead of the join, on the main thread, where
         // the SDK starts its hand-over too: JoinRoom posts that to the main looper, so a post from
         // here runs first.
-        BoardHandover.InUse(_boardView);
+        BoardHandover.InUse(_boardView, _claim);
 
         if (Looper.MyLooper() == Looper.MainLooper)
         {
@@ -105,17 +112,30 @@ public sealed partial class AgoraWhiteboardClient
         _sdk.JoinRoom(parameters, _listener, new Promise<NativeRoom>(
             room =>
             {
+                // Checked and stored in one step, because Dispose can run on any thread: either it
+                // marked the client disposed first and this room leaves here, or it comes after and
+                // finds the room to disconnect.
+                bool disposed;
+                lock (_gate)
+                {
+                    disposed = _disposed;
+
+                    if (!disposed)
+                    {
+                        _room = room;
+                    }
+                }
+
                 // Disposed while the join was in flight. Nothing is left to disconnect this room,
                 // and the hand-over guard already counts the board as let go of, so it would stay
                 // in the room as this user: leave now.
-                if (Volatile.Read(ref _disposed))
+                if (disposed)
                 {
                     room?.Disconnect();
                     complete(new AgoraWhiteboardException("the client was disposed before the join completed."));
                     return;
                 }
 
-                _room = room;
                 EnableHistory(_options.Writable);
                 _boardView.CallFocusView();
                 _boardView.EvaluateJavascript(FixContainerHeightScript);
@@ -144,11 +164,24 @@ public sealed partial class AgoraWhiteboardClient
         })();
         """;
 
-    private void DisconnectCore()
+    private void DisconnectCore() => LeaveRoom();
+
+    /// <summary>
+    /// Disconnects the room, if this client has one, and lets go of the board view. The view is
+    /// only let go of if this client was the last to join on it: see <see cref="BoardHandover.Released"/>.
+    /// </summary>
+    private void LeaveRoom()
     {
-        _room?.Disconnect();
-        _room = null;
-        BoardHandover.Released(_boardView);
+        NativeRoom? room;
+        lock (_gate)
+        {
+            room = _room;
+            _room = null;
+        }
+
+        // Safe on any thread: the SDK's bridge posts the call to the main looper.
+        room?.Disconnect();
+        BoardHandover.Released(_boardView, _claim);
     }
 
     private void SetToolCore(string applianceName, int[]? rgb, double? strokeWidth)
@@ -190,9 +223,7 @@ public sealed partial class AgoraWhiteboardClient
 
     private void DisposeCore()
     {
-        _room?.Disconnect();
-        _room = null;
-        BoardHandover.Released(_boardView);
+        LeaveRoom();
 
         // The SDK's own lifetime is the board view's: it holds the JS bridge on that WebView, and
         // there is no release call. Destroying the view is the consumer's business, or the MAUI
@@ -223,6 +254,11 @@ public sealed partial class AgoraWhiteboardClient
     /// been told to leave, or no longer exists. That's how a join behaved before 2.16.134. A board
     /// whose client is still joined keeps the SDK's hand-over.
     /// <para>
+    /// A view can have more than one client over its life: an app can disconnect one and make
+    /// another on the same view. Only the client that last joined on a view lets go of it, so an
+    /// earlier one disposed later doesn't hide the later one's room from the hand-over.
+    /// </para>
+    /// <para>
     /// Neither the map nor the flag is public, so this reaches them by reflection. The native
     /// version is pinned exactly, and the device suite rejoins after each of those teardowns. If the
     /// fields aren't there, nothing is forgotten, the SDK behaves as it always would, and a warning
@@ -236,33 +272,46 @@ public sealed partial class AgoraWhiteboardClient
         private static readonly Fields? Native = Fields.Find();
 
         /// <summary>
-        /// The board views this package has disconnected, until one joins again. Weak keys, so a
-        /// view the app drops is still collected. Locked, because Dispose can be called from any
-        /// thread.
+        /// Each board view this package has joined on, with the claim of the client that last
+        /// joined there, or <see cref="LetGo"/> once that client disconnected or was disposed.
+        /// Weak keys, so a view the app drops is still collected; a claim holds nothing, so it
+        /// can't keep its view alive. Locked, because Dispose can be called from any thread.
         /// </summary>
-        private static readonly Java.Util.WeakHashMap ReleasedBoards = new();
+        private static readonly Java.Util.WeakHashMap Boards = new();
 
-        public static void Released(WhiteboardView board)
+        /// <summary>What <see cref="Boards"/> holds for a view whose last client let go of it.</summary>
+        private static readonly Mark LetGo = new();
+
+        /// <summary>A client with <paramref name="claim"/> is joining on <paramref name="board"/>.</summary>
+        public static void InUse(WhiteboardView board, Mark claim)
         {
-            lock (ReleasedBoards)
+            lock (Boards)
             {
-                ReleasedBoards.Put(board, Java.Lang.Boolean.True);
+                Boards.Put(board, claim);
             }
         }
 
-        public static void InUse(WhiteboardView board)
+        /// <summary>
+        /// The client with <paramref name="claim"/> has left its room, or never got one. That lets
+        /// go of <paramref name="board"/> only if no other client has joined on it since, because
+        /// that one may still be in the room.
+        /// </summary>
+        public static void Released(WhiteboardView board, Mark claim)
         {
-            lock (ReleasedBoards)
+            lock (Boards)
             {
-                ReleasedBoards.Remove(board);
+                if (claim.Equals(Boards.Get(board)))
+                {
+                    Boards.Put(board, LetGo);
+                }
             }
         }
 
         private static bool WasReleased(Java.Lang.Object? board)
         {
-            lock (ReleasedBoards)
+            lock (Boards)
             {
-                return board is not null && ReleasedBoards.ContainsKey(board);
+                return board is not null && LetGo.Equals(Boards.Get(board));
             }
         }
 
@@ -300,6 +349,14 @@ public sealed partial class AgoraWhiteboardClient
                     LogTag,
                     $"couldn't clear whiteboard-android's board hand-over record, so this join may fail with StaleScope or LeaveTimeout: {exception.GetType().Name}: {exception.Message}");
             }
+        }
+
+        /// <summary>
+        /// A client's claim on a board view, or <see cref="LetGo"/>. Java objects, so the map can
+        /// hold them, and compared by identity, which Java's equals is for a plain object.
+        /// </summary>
+        public sealed class Mark : Java.Lang.Object
+        {
         }
 
         /// <summary>
