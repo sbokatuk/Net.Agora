@@ -25,11 +25,40 @@ public sealed class MainActivity : Activity
         // constructor needs a Context to create the engine, and this activity is the only one this
         // process ever has.
         SmokeTests.AndroidContext = this;
+        SmokeTests.Setting = ReadSettings();
 
         _ = TestRunner.RunAndReportAsync(
             message => Log.Info(LogTag, message),
             // Not exiting the process: the runner reads the verdict from logcat, and killing the
             // app here would race the log being flushed.
             _ => { });
+    }
+
+    /// <summary>
+    /// Reads the settings run-emulator-tests.sh wrote into this app's private storage, one
+    /// <c>NAME=value</c> per line, and deletes the file so they don't outlive the run. They arrive as
+    /// a file because the script can send it over adb's stdin, where an intent extra would put each
+    /// value on a command line.
+    /// </summary>
+    private Func<string, string?> ReadSettings()
+    {
+        var path = Path.Combine(FilesDir!.AbsolutePath, "live-settings.env");
+        var settings = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (File.Exists(path))
+        {
+            foreach (var line in File.ReadAllLines(path))
+            {
+                var split = line.IndexOf('=');
+                if (split > 0)
+                {
+                    settings[line[..split]] = line[(split + 1)..];
+                }
+            }
+
+            File.Delete(path);
+        }
+
+        return name => settings.TryGetValue(name, out var value) ? value : null;
     }
 }

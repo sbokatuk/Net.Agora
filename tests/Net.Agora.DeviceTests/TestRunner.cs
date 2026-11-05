@@ -35,6 +35,12 @@ public static class TestRunner
                 await test.Execute();
                 report($"PASS {test.Name}");
             }
+            catch (SmokeTestSkippedException skipped)
+            {
+                // Not a failure: the check needs something this run wasn't given, such as a live
+                // room. Reported on its own line so a log says plainly that it didn't run.
+                report($"SKIP {test.Name}: {skipped.Message}");
+            }
             catch (Exception exception)
             {
                 failures++;
@@ -60,3 +66,10 @@ public static class TestRunner
         exit(failures == 0 ? 0 : 1);
     }
 }
+
+/// <summary>
+/// Thrown by a check that can't run in this environment. The runner reports it as skipped rather
+/// than failed.
+/// </summary>
+/// <param name="reason">What the check needed and how to provide it.</param>
+public sealed class SmokeTestSkippedException(string reason) : Exception(reason);

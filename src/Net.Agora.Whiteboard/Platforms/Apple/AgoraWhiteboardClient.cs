@@ -67,6 +67,7 @@ public sealed partial class AgoraWhiteboardClient
             // The view's own Room property is what the board renders through; the SDK does not set
             // it. Miss this and the join succeeds while the view stays inert.
             _boardView.Room = room;
+            EnableHistory(_options.Writable);
             complete(null);
         });
     }
@@ -103,9 +104,18 @@ public sealed partial class AgoraWhiteboardClient
 
     private void SetWritableCore(bool writable, Action<AgoraWhiteboardException?> complete) =>
         _room!.SetWritable(writable, (_, error) =>
-            complete(error is null
-                ? null
-                : new AgoraWhiteboardException(error.LocalizedDescription)));
+        {
+            if (error is not null)
+            {
+                complete(new AgoraWhiteboardException(error.LocalizedDescription));
+                return;
+            }
+
+            EnableHistory(writable);
+            complete(null);
+        });
+
+    private void EnableHistoryCore() => _room?.DisableSerialization(false);
 
     private void RefreshViewSizeCore() => _room?.RefreshViewSize();
 

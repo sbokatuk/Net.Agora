@@ -90,6 +90,7 @@ public sealed partial class AgoraWhiteboardClient
             room =>
             {
                 _room = room;
+                EnableHistory(_options.Writable);
                 _boardView.CallFocusView();
                 _boardView.EvaluateJavascript(FixContainerHeightScript);
 
@@ -149,8 +150,14 @@ public sealed partial class AgoraWhiteboardClient
 
     private void SetWritableCore(bool writable, Action<AgoraWhiteboardException?> complete) =>
         _room!.SetWritable(writable, new Promise<Java.Lang.Boolean>(
-            _ => complete(null),
+            _ =>
+            {
+                EnableHistory(writable);
+                complete(null);
+            },
             error => complete(new AgoraWhiteboardException(error))));
+
+    private void EnableHistoryCore() => _room?.DisableSerialization(false);
 
     private void RefreshViewSizeCore() => _room?.RefreshViewSize();
 

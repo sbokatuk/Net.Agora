@@ -141,6 +141,15 @@ xcrun simctl bootstatus "${udid}" -b
 echo "==> installing"
 xcrun simctl install "${udid}" "${APP_PATH}"
 
+# The live Whiteboard checks join a real room when one is named here and are skipped otherwise. CI
+# names none. simctl hands each SIMCTL_CHILD_<name> to the app's environment as <name>, so the values
+# reach neither the build nor a command line.
+for name in AGORA_WHITEBOARD_APP_IDENTIFIER AGORA_WHITEBOARD_ROOM_UUID AGORA_WHITEBOARD_ROOM_TOKEN AGORA_WHITEBOARD_REGION; do
+    if [ -n "${!name:-}" ]; then
+        export "SIMCTL_CHILD_${name}=${!name}"
+    fi
+done
+
 echo "==> running"
 # --console-pty streams the app's stdout straight back, so the verdict rarely needs log scraping.
 # The app terminates itself once it has printed AGORA_E2E_DONE.

@@ -48,6 +48,10 @@ public sealed class AppDelegate : UIApplicationDelegate
 #pragma warning restore CA1422
         Window.MakeKeyAndVisible();
 
+        // run-simulator-tests.sh passes settings as SIMCTL_CHILD_<name>, which simctl hands to the
+        // app's environment as <name>: they reach neither the build nor a command line.
+        SmokeTests.Setting = Environment.GetEnvironmentVariable;
+
         // On the main thread deliberately: AgoraRtcEngineKit's delegate callbacks are dispatched on
         // the main queue, so a check that awaits one has to run from it too. Nothing here blocks
         // long enough to trip the watchdog.
