@@ -645,7 +645,8 @@ public static class SmokeTests
                 // A user id per check. On Android, whiteboard 2.16.134 hands a session for the same
                 // App Identifier, room and user from one board to the next by asking the old board
                 // to leave first. If that board's page is already gone, the new join fails with
-                // StaleScope, and one check's teardown shouldn't decide whether the next one joins.
+                // StaleScope, even when the old board finished leaving before its page went. So
+                // each check has its own user id, and one check's teardown can't stop the next join.
                 Uid = $"{UserId}-{(writable ? "writer" : "reader")}",
                 Writable = writable,
                 Timeout = JoinTimeout,
@@ -922,7 +923,8 @@ public static class SmokeTests
         private async Task LeaveAsync()
         {
             // Lets the room finish leaving before its page goes, as an app would by keeping the
-            // view around. See the Uid above for what a page torn down mid-leave does on Android.
+            // view around. On Android that isn't enough for the same user to join again: see the
+            // Uid above.
             if (Client.IsJoined)
             {
                 var left = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
