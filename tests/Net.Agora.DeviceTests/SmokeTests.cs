@@ -139,9 +139,13 @@ public static class SmokeTests
         new("an unregistered room fails the join within the configured timeout", LoginFailsWithinTimeout),
         new("disconnect without a join is a no-op", LogoutWithoutALoginIsANoOp),
         new("disposes cleanly", DisposesCleanly),
+#if ANDROID
+        new("the SDK still keeps the board hand-over record the client clears", HandoverRecordIsWhereTheClientLooks),
+#endif
         new("live: a stroke is an undo step, and Undo and Redo take it off the board and back", UndoAndRedoChangeTheScene),
         new("live: a read-only join gets its undo history once writing is granted", ReadOnlyJoinGetsHistoryWhenWritable),
 #if ANDROID
+        new("live: a join that completes after Dispose leaves the room", JoinThatCompletesAfterDisposeLeaves),
         new("live: the same user joins again with a new client on the same board", RejoinsOnTheSameBoard),
         new("live: the same user joins again on a new board while the last one is still joined, which takes that one out", RejoinsWhileTheLastBoardIsStillJoined),
         new("live: the same user joins again on a new board after the last one went off screen", RejoinsAfterTheLastBoardWentOffScreen),
@@ -567,6 +571,85 @@ public static class SmokeTests
     // was still disconnecting with LeaveTimeout. Each check below is one way an app ends up with a
     // second board for the same user, and each has a user id of its own, so a failure in one can't
     // spread to the next.
+
+    /// <summary>
+    /// The client clears whiteboard-android's private record of which board holds each user, by
+    /// reflection, and quietly does nothing if it isn't there. This needs no room, so CI runs it:
+    /// a native pin whose SDK moved the record fails here rather than shipping the rejoin failures
+    /// back. The names are the ones <c>BoardHandover</c> reads.
+    /// </summary>
+    private static void HandoverRecordIsWhereTheClientLooks()
+    {
+        var lifecycle = Java.Lang.Class.FromType(typeof(global::Agora.Whiteboard.WhiteboardView)).GetDeclaredField("lifecycle");
+        var host = lifecycle.Type;
+        Assert(host.Name == "com.herewhite.sdk.LifecycleHost", $"WhiteboardView.lifecycle is a {host.Name}.");
+
+        var owners = host.GetDeclaredField("owners");
+        Assert(
+            Java.Lang.Reflect.Modifier.IsStatic(owners.Modifiers) && owners.Type.Name == "java.util.Map",
+            $"LifecycleHost.owners is {Java.Lang.Reflect.Modifier.ToString(owners.Modifiers)} {owners.Type.Name}, not a static java.util.Map.");
+
+        var invalid = host.GetDeclaredField("invalid");
+        Assert(invalid.Type.Name == "boolean", $"LifecycleHost.invalid is a {invalid.Type.Name}, not a boolean.");
+
+        var raw = host.GetDeclaredField("raw");
+        Assert(
+            raw.Type.IsAssignableFrom(Java.Lang.Class.FromType(typeof(global::Agora.Whiteboard.WhiteboardView))),
+            $"LifecycleHost.raw is a {raw.Type.Name}, which can't hold the board view.");
+    }
+
+    /// <summary>
+    /// A join still in flight when its client is disposed. Disposing counts the board as let go of,
+    /// so a later join for the same user skips the SDK's hand-over: the room this join makes has to
+    /// leave by itself, or it stays in the room as that user.
+    /// </summary>
+    private static async Task JoinThatCompletesAfterDisposeLeaves()
+    {
+        var options = LiveBoard.Options($"{UserId}-late-join", writable: true);
+        var activity = (Android.App.Activity)(AndroidContext
+            ?? throw new InvalidOperationException("SmokeTests.AndroidContext was not set."));
+        var board = new global::Agora.Whiteboard.WhiteboardView(activity);
+        activity.SetContentView(board);
+        var client = new AgoraClient(options, board, activity);
+
+        try
+        {
+            var join = client.JoinAsync();
+            client.Dispose();
+
+            AgoraClientException? error = null;
+            try
+            {
+                await join;
+            }
+            catch (AgoraClientException exception)
+            {
+                error = exception;
+                Report($"the join failed: {exception.Message}");
+            }
+
+            var deadline = DateTime.UtcNow + BoardTimeout;
+            string phase;
+            while ((phase = (await RoomPhaseAsync(board)).Trim('"')) is not ("disconnected" or "no room object in the page"))
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new InvalidOperationException($"the room the late join made is still {phase}.");
+                }
+
+                await Task.Delay(200);
+            }
+
+            Report($"the late join's room: {phase}");
+            Assert(error is not null, "a join that completed after Dispose was reported as joined.");
+        }
+        finally
+        {
+            client.Dispose();
+            activity.SetContentView(new Android.Views.View(activity));
+            board.Destroy();
+        }
+    }
 
     private static Task RejoinsOnTheSameBoard() => RejoinAsync("same-board", FirstBoard.Reused);
 
