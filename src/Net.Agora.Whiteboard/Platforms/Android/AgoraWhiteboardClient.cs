@@ -1,6 +1,8 @@
 using Agora.Whiteboard;
 using Agora.Whiteboard.Domain;
 using Android.Content;
+using Android.OS;
+using Android.Runtime;
 
 using NativeMemberState = Agora.Whiteboard.Domain.MemberState;
 using NativeRoom = Agora.Whiteboard.Room;
@@ -86,6 +88,20 @@ public sealed partial class AgoraWhiteboardClient
             parameters.Region = ToRegion(_options.Region);
         }
 
+        // This board is in use again. The rest runs ahead of the join, on the main thread, where
+        // the SDK starts its hand-over too: JoinRoom posts that to the main looper, so a post from
+        // here runs first.
+        BoardHandover.InUse(_boardView);
+
+        if (Looper.MyLooper() == Looper.MainLooper)
+        {
+            BoardHandover.ForgetBoardsWithNothingToHandOver();
+        }
+        else
+        {
+            new Handler(Looper.MainLooper!).Post(BoardHandover.ForgetBoardsWithNothingToHandOver);
+        }
+
         _sdk.JoinRoom(parameters, _listener, new Promise<NativeRoom>(
             room =>
             {
@@ -122,6 +138,7 @@ public sealed partial class AgoraWhiteboardClient
     {
         _room?.Disconnect();
         _room = null;
+        BoardHandover.Released(_boardView);
     }
 
     private void SetToolCore(string applianceName, int[]? rgb, double? strokeWidth)
@@ -165,10 +182,138 @@ public sealed partial class AgoraWhiteboardClient
     {
         _room?.Disconnect();
         _room = null;
+        BoardHandover.Released(_boardView);
 
         // The SDK's own lifetime is the board view's: it holds the JS bridge on that WebView, and
         // there is no release call. Destroying the view is the consumer's business, or the MAUI
-        // handler's.
+        // handler's, and it can happen at any time after this: the next join for the same user on
+        // another board doesn't need this one to answer. See BoardHandover.
+    }
+
+    /// <summary>
+    /// Keeps whiteboard-android's board-to-board hand-over from refusing a join because of a board
+    /// that has nothing to hand over.
+    /// </summary>
+    /// <remarks>
+    /// Since 2.16.134 the SDK keeps, for the whole process, which board last joined each App
+    /// Identifier, room and user, in a static map on its internal <c>LifecycleHost</c>. A join for
+    /// that user on another board first asks the old board's page to leave, and fails if it
+    /// doesn't. Only a successful leave takes a board out of the map. <c>Room.disconnect()</c>
+    /// doesn't, and neither does destroying the view. A failed leave is kept, so every later join
+    /// for that user fails the same way until the process ends. Measured on an emulator:
+    /// <list type="bullet">
+    /// <item>A board whose view was destroyed fails with <c>StaleScope</c> straight away: its page
+    /// is gone.</item>
+    /// <item>A board taken off screen before its room finished disconnecting fails with
+    /// <c>LeaveTimeout</c> after 20 seconds. Its page still runs, but the room stays
+    /// "disconnecting".</item>
+    /// </list>
+    /// So before each join this forgets the boards that can't need a hand-over: those whose page is
+    /// gone, and those this package has already disconnected or disposed. Either way their room has
+    /// been told to leave, or no longer exists. That's how a join behaved before 2.16.134. A board
+    /// whose client is still joined keeps the SDK's hand-over.
+    /// <para>
+    /// Neither the map nor the flag is public, so this reaches them by reflection. The native
+    /// version is pinned exactly, and the device suite rejoins after each of those teardowns. If the
+    /// fields aren't there, nothing is forgotten and the SDK behaves as it always would.
+    /// </para>
+    /// </remarks>
+    private static class BoardHandover
+    {
+        private static readonly Fields? Native = Fields.Find();
+
+        /// <summary>
+        /// The board views this package has disconnected, until one joins again. Weak keys, so a
+        /// view the app drops is still collected. Locked, because Dispose can be called from any
+        /// thread.
+        /// </summary>
+        private static readonly Java.Util.WeakHashMap ReleasedBoards = new();
+
+        public static void Released(WhiteboardView board)
+        {
+            lock (ReleasedBoards)
+            {
+                ReleasedBoards.Put(board, Java.Lang.Boolean.True);
+            }
+        }
+
+        public static void InUse(WhiteboardView board)
+        {
+            lock (ReleasedBoards)
+            {
+                ReleasedBoards.Remove(board);
+            }
+        }
+
+        private static bool WasReleased(Java.Lang.Object? board)
+        {
+            lock (ReleasedBoards)
+            {
+                return board is not null && ReleasedBoards.ContainsKey(board);
+            }
+        }
+
+        /// <summary>Main thread only: the SDK reads and writes its map there, unlocked.</summary>
+        public static void ForgetBoardsWithNothingToHandOver()
+        {
+            if (Native is not { } native)
+            {
+                return;
+            }
+
+            // Nothing here is disposed: Field.Get hands back the existing peer of an object .NET
+            // already holds, which for the board view is the app's own.
+            try
+            {
+                // Through the Java iterator rather than the .NET collection Values() is bound as,
+                // because only the Java one can remove an entry as it goes.
+                var boards = native.Owners.Get(null)?.JavaCast<Java.Util.IMap>()?.Values() as Java.Lang.Object;
+                var iterator = boards?.JavaCast<Java.Lang.IIterable>().Iterator();
+
+                while (iterator?.HasNext == true)
+                {
+                    var host = iterator.Next();
+
+                    if (host is not null && (native.Invalid.GetBoolean(host) || WasReleased(native.Board.Get(host))))
+                    {
+                        iterator.Remove();
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Leaves the map as it is; the join goes ahead and the SDK decides.
+            }
+        }
+
+        /// <summary>
+        /// <c>LifecycleHost</c>'s static <c>owners</c> map, its <c>invalid</c> flag, set once the
+        /// page is gone, and <c>raw</c>, the board view it drives.
+        /// </summary>
+        private sealed record Fields(Java.Lang.Reflect.Field Owners, Java.Lang.Reflect.Field Invalid, Java.Lang.Reflect.Field Board)
+        {
+            public static Fields? Find()
+            {
+                try
+                {
+                    // Through the board view's own field, so the class comes from the SDK's loader.
+                    var host = Java.Lang.Class.FromType(typeof(WhiteboardView)).GetDeclaredField("lifecycle").Type;
+                    var fields = new Fields(
+                        host.GetDeclaredField("owners"),
+                        host.GetDeclaredField("invalid"),
+                        host.GetDeclaredField("raw"));
+
+                    fields.Owners.Accessible = true;
+                    fields.Invalid.Accessible = true;
+                    fields.Board.Accessible = true;
+                    return fields;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+        }
     }
 
     /// <summary>
